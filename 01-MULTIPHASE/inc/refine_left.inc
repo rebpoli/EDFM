@@ -1,0 +1,12 @@
+
+************
+**REFINE BG 'matrix_left'   INTO 1 2 1
+
+REFINE 1 2 1  INTO 1 2 1
+DJ RG 1 2 1 JVAR .05 .95
+
+REFINE 1 6 1  INTO 1 2 1
+DJ RG 1 6 1 JVAR .05 .95
+
+REFINE 1 10 1 INTO 1 2 1
+DJ RG 1 10 1 JVAR .05 .95
