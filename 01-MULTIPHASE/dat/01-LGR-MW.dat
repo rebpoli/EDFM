@@ -74,7 +74,7 @@ MOD
 BG 'fractures' = 2
 
 *RPT 1
-INCLUDE '..\inc\swt-mw.inc'
+INCLUDE '..\inc\swt-mw-pc0.inc'
 
 *RPT 2
 *SWT

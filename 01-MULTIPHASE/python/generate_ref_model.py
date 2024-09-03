@@ -6,19 +6,19 @@ idir = {
     'b0'       : "0.65 1.2 3*0.1",     # Boundary beginning
     'block'    : "1.2 1.3 1.2 3*0.1 ", # Block
     'b1'       : "1.2 0.65",           # Buondary end
-    'n_blocks' : 5
+    'n_blocks' : 12
 }
 jdir = {
     'b0'       : "0.65 1.2 3*0.1",     # Boundary beginning
     'block'    : "1.2 1.3 1.2 3*0.1 ", # Block
     'b1'       : "1.2 0.65",           # Buondary end
-    'n_blocks' : 5
+    'n_blocks' : 12
 }
 kdir = {
     'b0'       : "10 0.1",                # Boundary beginning (TOP)
     'block'    : "1.2 1.3 1.2 3*0.1 ", # Block
     'b1'       : "1.2 1.3 1.2 2*0.1 10",  # Buondary end (BOTTOM)
-    'n_blocks' : 5
+    'n_blocks' : 12
 }
 idir['n_cells'] = idir['n_blocks'] * 6 + 7
 jdir['n_cells'] = jdir['n_blocks'] * 6 + 7
@@ -72,7 +72,7 @@ print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 2:{kdir['n_cells']-1} 0")
 # Identify the fractures
 print("\nBLOCKGROUP 'fractures' ALL")
 
-cap_cont = True
+cap_cont = False
 
 for k in range(kdir['n_cells']) :
     kfrac = not k%6 or k==kdir['n_cells']-1
@@ -95,8 +95,6 @@ for k in range(kdir['n_cells']) :
 
 # Blockgroup to block PERMK from frame to matrix
 print("\nBLOCKGROUP 'matrix_frame' ALL")
-
-cap_cont = True
 
 # first and last layers
 kgrp = [ 0 , kdir['n_cells']-1 ]
