@@ -69,11 +69,28 @@ print("\nBLOCKGROUP 'frame' IJK")
 print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 1:{kdir['n_cells']} 1")
 print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 2:{kdir['n_cells']-1} 0")
 
-# Identify the fractures
-print("\nBLOCKGROUP 'fractures' ALL")
+cap_cont = True   # Control the KR of the fracture cells between matrix block
 
-cap_cont = False
+# Identify the fractures (K)
+print("\nBLOCKGROUP 'fractures_k' ALL")
+for k in range(kdir['n_cells']) :
+    kfrac = not k%6 or k==kdir['n_cells']-1
+    for j in range(jdir['n_cells']) :
+        jfrac = not (j-3)%6
+        for i in range(idir['n_cells']) :
+            ifrac = not (i-3)%6
+            frac = 0
+            if jfrac or ifrac or kfrac : frac=1 
 
+            print(f"{frac} ", end="")
+
+            # Newlines
+#             if not (i+1)%50 : print()
+        print()
+    print()
+
+# Identify the fractures (KREL)
+print("\nBLOCKGROUP 'fractures_krel' ALL")
 for k in range(kdir['n_cells']) :
     kfrac = not k%6 or k==kdir['n_cells']-1
     for j in range(jdir['n_cells']) :
@@ -84,14 +101,17 @@ for k in range(kdir['n_cells']) :
             if jfrac or ifrac or kfrac : frac=1 
 
             # Deal with capillary continuity
-            if cap_cont and kfrac and ( not i%6 ) and ( not j%6 ) : frac = 0
+            if cap_cont :
+                if kfrac and ( (i-3)%6 and (j-3)%6 ) :
+                    frac = 0
 
             print(f"{frac} ", end="")
 
             # Newlines
-            if not (i+1)%50 : print()
+#             if not (i+1)%50 : print()
         print()
     print()
+
 
 # Blockgroup to block PERMK from frame to matrix
 print("\nBLOCKGROUP 'matrix_frame' ALL")
@@ -109,7 +129,7 @@ for k in range(kdir['n_cells']) :
             if is_i and is_j and is_k  : w = 1
 
             print(f"{w} ", end="")
-            if not (i+1)%50 : print()
+#             if not (i+1)%50 : print()
         print()
     print()
 
