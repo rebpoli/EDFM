@@ -69,10 +69,8 @@ print("\nBLOCKGROUP 'frame' IJK")
 print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 1:{kdir['n_cells']} 1")
 print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 2:{kdir['n_cells']-1} 0")
 
-cap_cont = True   # Control the KR of the fracture cells between matrix block
-
 # Identify the fractures (K)
-print("\nBLOCKGROUP 'fractures_k' ALL")
+print("\nBLOCKGROUP 'fractures' ALL")
 for k in range(kdir['n_cells']) :
     kfrac = not k%6 or k==kdir['n_cells']-1
     for j in range(jdir['n_cells']) :
@@ -89,28 +87,33 @@ for k in range(kdir['n_cells']) :
         print()
     print()
 
-# Identify the fractures (KREL)
-print("\nBLOCKGROUP 'fractures_krel' ALL")
-for k in range(kdir['n_cells']) :
-    kfrac = not k%6 or k==kdir['n_cells']-1
-    for j in range(jdir['n_cells']) :
-        jfrac = not (j-3)%6
-        for i in range(idir['n_cells']) :
-            ifrac = not (i-3)%6
-            frac = 0
-            if jfrac or ifrac or kfrac : frac=1 
 
-            # Deal with capillary continuity
-            if cap_cont :
-                if kfrac and ( (i-3)%6 and (j-3)%6 ) :
-                    frac = 0
+#
+# I changed the strategy for capillary continuity. Now it is done in the SWT tables for all fractures
+#
+# # Identify the fractures (KREL)
+# cap_cont = True   # Control the KR of the fracture cells between matrix block
+# print("\nBLOCKGROUP 'fractures_krel' ALL")
+# for k in range(kdir['n_cells']) :
+#     kfrac = not k%6 or k==kdir['n_cells']-1
+#     for j in range(jdir['n_cells']) :
+#         jfrac = not (j-3)%6
+#         for i in range(idir['n_cells']) :
+#             ifrac = not (i-3)%6
+#             frac = 0
+#             if jfrac or ifrac or kfrac : frac=1 
 
-            print(f"{frac} ", end="")
+#             # Deal with capillary continuity
+#             if cap_cont :
+#                 if kfrac and ( (i-3)%6 and (j-3)%6 ) :
+#                     frac = 0
 
-            # Newlines
-#             if not (i+1)%50 : print()
-        print()
-    print()
+#             print(f"{frac} ", end="")
+
+#             # Newlines
+# #             if not (i+1)%50 : print()
+#         print()
+#     print()
 
 
 # Blockgroup to block PERMK from frame to matrix

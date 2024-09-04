@@ -22,7 +22,7 @@ INCLUDE '..\inc\mesh.inc'
 
 PERMI CON 100
 MOD 
-BG 'fractures_k' = 10000
+BG 'fractures' = 10000
 BG 'frame' = 10000
 
 PERMJ EQUALSI
@@ -33,7 +33,7 @@ BG 'matrix_frame' = 0
 NULL CON 1
 POR CON 0.15
 MOD 
-BG 'fractures_k' = 0.01
+BG 'fractures' = 0.01
 BG 'frame' = 1
 
 VOLMOD CON 1
@@ -71,20 +71,13 @@ BG 'frame' * 1e6
 ROCKFLUID
 RTYPE CON 1                ** KREL
 MOD 
-BG 'fractures_krel' = 2
+BG 'fractures' = 2
 
 *RPT 1
 INCLUDE '..\inc\swt-ow.inc'
 
 *RPT 2
-*SWT
-   ** SW   KRW   KROW   
-    0     0.00   1.00
-    1.00  1.00   0.00                         
-*SLT
-**     SL    KRG   KROG  
-    0.00  1.00  0.00    
-    1.00  0.00  1.00
+INCLUDE '..\inc\swt-ow-frac.inc'
 
 INITIAL
 VERTICAL *BLOCK_CENTER *WATER_OIL_GAS  

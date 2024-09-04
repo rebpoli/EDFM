@@ -1,5 +1,9 @@
 import sys, os
 
+import pandas as pd
+from scipy.interpolate import interp1d
+import ogsim
+
 import matplotlib.pyplot as plt
 if os.path.isfile( 'paper.mplstyle' ) :
     plt.style.use('default')   ## reset!
@@ -53,3 +57,73 @@ def load_csv_or_die( fn ) :
     df = pd.read_csv( fn, sep="\t" )
     return df;
 
+#
+# CONFIGURATIONS FOR THE PLOTS
+#
+CFG = {
+        "LGR MW Cap Cont": { 'fn' : "../dat/01-LGR-MW.sr3" , 'c' : 'r', 'ls': '--' },
+        "LGR OW Cap Cont": { 'fn' : "../dat/01-LGR-OW.sr3" , 'c' : 'g', 'ls': '--' },
+        "LGR WW Cap Cont": { 'fn' : "../dat/01-LGR-WW.sr3" , 'c' : 'b', 'ls': '--' },
+
+        "LGR MW $P_c=0$": { 'fn' : "../dat/01-LGR-MW-PC0.sr3" , 'c' : 'r', 'ls': '-' },
+        "LGR OW $P_c=0$": { 'fn' : "../dat/01-LGR-OW-PC0.sr3" , 'c' : 'g', 'ls': '-' },
+        "LGR WW $P_c=0$": { 'fn' : "../dat/01-LGR-WW-PC0.sr3" , 'c' : 'b', 'ls': '-' },
+
+        "LGR MW Cap Discont" : { 'fn' : "../dat/01-LGR-MW-nocapcont.sr3" , 'c' : 'r', 'ls':'-' },
+        "LGR OW Cap Discont" : { 'fn' : "../dat/01-LGR-OW-nocapcont.sr3" , 'c' : 'g', 'ls':'-' },
+        "LGR WW Cap Discont" : { 'fn' : "../dat/01-LGR-WW-nocapcont.sr3" , 'c' : 'b', 'ls':'-' },
+}
+
+oil_str = "Oil Volume SC SCTR"
+
+
+#
+# PROCEDURE : Prepare database
+#
+dfs = []
+for l in CFG :
+    cfg=CFG[l]
+    fn = cfg['fn']
+    sr3 = ogsim.IMEX(fn)
+    sec = sr3.read_timeseries('SECTORS')
+
+    # Troca o indice para "offset in days"
+    sec = sec.sel(origin='RES')
+    sec = sec.assign_coords(**{"Offset in days":("Date", sec.coords["Offset in days"].values)})
+    df  = sec.swap_dims({"Date":"Offset in days"})[oil_str].to_dataframe()
+
+    # Calcula Recovery factor
+    v0 = df.iloc[0][oil_str]
+    df['RF'] = ( 1 - df[oil_str]/v0 ) * 100
+
+    # Registra
+    df['label'] = l
+    dfs.append(df)
+
+df = pd.concat(dfs)
+print(df)
+
+#
+# PROCEDURE: find time constant
+#
+data = []
+for l, grp in df.groupby("label") :
+    c = CFG[l]['c']
+
+    # PROCEDURE: find time constant
+    rf=grp["RF"]
+    time=grp.index
+
+    f=interp1d( rf, time, kind="cubic" )
+
+    rf_max = grp["RF"].max()
+    rf_2_3 = rf_max * 2 / 3
+    tau = f(rf_2_3)
+
+    CFG[l]["rf_2_3"] = rf_2_3
+    CFG[l]["tau"] = tau
+
+    data.append( { "label" : l , "rf_2_3" : rf_2_3, "tau" : tau, "rf_max":rf_max } )
+
+TIME_CONSTANT = pd.DataFrame( data )
+TIME_CONSTANT.to_excel( "png/time_constant.xlsx" )

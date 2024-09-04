@@ -543,14 +543,14 @@ legend.frameon:       True     # if True, draw the legend on a background patch
 legend.framealpha:    0.8      # legend patch transparency
 #legend.facecolor:     inherit  # inherit from axes.facecolor; or color spec
 legend.edgecolor:     0      # background patch boundary color
-#legend.linewidth:     0 
+legend.linewidth:     1 
 legend.fancybox:      False     # if True, use a rounded box for the
                                 # legend background, else a rectangle
 #legend.shadow:        False    # if True, give background a shadow effect
 #legend.numpoints:     1        # the number of marker points in the legend line
 #legend.scatterpoints: 1        # number of scatter points
 #legend.markerscale:   1.0      # the relative size of legend markers vs. original
-legend.fontsize:      8
+legend.fontsize:      4
 #legend.title_fontsize: None    # None sets to the same as the default axes.
 
 ## Dimensions as fraction of font size:
