@@ -15,14 +15,14 @@ jdir = {
     'n_blocks' : 12
 }
 kdir = {
-    'b0'       : "10 0.1",                # Boundary beginning (TOP)
+    'b0'       : "0.1 0.1",                # Boundary beginning (TOP)
     'block'    : "1.2 1.3 1.2 3*0.1 ", # Block
-    'b1'       : "1.2 1.3 1.2 2*0.1 10",  # Buondary end (BOTTOM)
+    'b1'       : "1.2 1.3 1.2 2*0.1",  # Buondary end (BOTTOM)
     'n_blocks' : 12
 }
 idir['n_cells'] = idir['n_blocks'] * 6 + 7
 jdir['n_cells'] = jdir['n_blocks'] * 6 + 7
-kdir['n_cells'] = kdir['n_blocks'] * 6 + 8
+kdir['n_cells'] = kdir['n_blocks'] * 6 + 7
 
 #
 #  PROCEDURE : GENERATE GRID GEOMETRY
@@ -64,10 +64,10 @@ print(f" {idir['n_cells'] * jdir['n_cells']}*5000")
 #  PROCEDURE : GENERATE BLOCKGROUPS
 #
 
-# The frame is the top and the bottom layers (only in K)
+# The frame is the top layer (only in K)
 print("\nBLOCKGROUP 'frame' IJK")
 print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 1:{kdir['n_cells']} 1")
-print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 2:{kdir['n_cells']-1} 0")
+print(f"1:{idir['n_cells']} 1:{jdir['n_cells']} 2:{kdir['n_cells']} 0")
 
 # Identify the fractures (K)
 print("\nBLOCKGROUP 'fractures' ALL")

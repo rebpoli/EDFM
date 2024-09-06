@@ -84,6 +84,7 @@ dfs = []
 for l in CFG :
     cfg=CFG[l]
     fn = cfg['fn']
+    print(f"Reading '{fn}' ...")
     sr3 = ogsim.IMEX(fn)
     sec = sr3.read_timeseries('SECTORS')
 

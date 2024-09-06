@@ -10,8 +10,9 @@ from paper import *
 import ogsim
 
 
-CFG_LIST = [ "LGR MW Cap Cont", "LGR OW Cap Cont", "LGR WW Cap Cont",
-              "LGR MW Cap Discont", "LGR OW Cap Discont", "LGR WW Cap Discont" ]
+CFG_LIST = [ "LGR MW Cap Cont", "LGR OW Cap Cont",
+             "LGR WW Cap Cont",
+             "LGR MW Cap Discont", "LGR OW Cap Discont", "LGR WW Cap Discont" ]
 
 
 fig, ax = plt.subplots(1, 1, sharex=True)
