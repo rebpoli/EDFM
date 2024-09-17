@@ -61,17 +61,21 @@ def load_csv_or_die( fn ) :
 # CONFIGURATIONS FOR THE PLOTS
 #
 CFG = {
-        "LGR MW Cap Cont": { 'fn' : "../dat/01-LGR-MW.sr3" , 'c' : 'r', 'ls': '--' },
-        "LGR OW Cap Cont": { 'fn' : "../dat/01-LGR-OW.sr3" , 'c' : 'g', 'ls': '--' },
-        "LGR WW Cap Cont": { 'fn' : "../dat/01-LGR-WW.sr3" , 'c' : 'b', 'ls': '--' },
+        "LGR MW Cap Cont": { 'fn' : "../dat-LGR/01-LGR-MW.sr3" , 'c' : 'r', 'ls': '--' },
+        "LGR OW Cap Cont": { 'fn' : "../dat-LGR/01-LGR-OW.sr3" , 'c' : 'g', 'ls': '--' },
+        "LGR WW Cap Cont": { 'fn' : "../dat-LGR/01-LGR-WW.sr3" , 'c' : 'b', 'ls': '--' },
 
-        "LGR MW $P_c=0$": { 'fn' : "../dat/01-LGR-MW-PC0.sr3" , 'c' : 'r', 'ls': '-' },
-        "LGR OW $P_c=0$": { 'fn' : "../dat/01-LGR-OW-PC0.sr3" , 'c' : 'g', 'ls': '-' },
-        "LGR WW $P_c=0$": { 'fn' : "../dat/01-LGR-WW-PC0.sr3" , 'c' : 'b', 'ls': '-' },
+        "LGR MW $P_c=0$": { 'fn' : "../dat-LGR/01-LGR-MW-PC0.sr3" , 'c' : 'r', 'ls': '-' },
+        "LGR OW $P_c=0$": { 'fn' : "../dat-LGR/01-LGR-OW-PC0.sr3" , 'c' : 'g', 'ls': '-' },
+        "LGR WW $P_c=0$": { 'fn' : "../dat-LGR/01-LGR-WW-PC0.sr3" , 'c' : 'b', 'ls': '-' },
 
-        "LGR MW Cap Discont" : { 'fn' : "../dat/01-LGR-MW-nocapcont.sr3" , 'c' : 'r', 'ls':'-' },
-        "LGR OW Cap Discont" : { 'fn' : "../dat/01-LGR-OW-nocapcont.sr3" , 'c' : 'g', 'ls':'-' },
-        "LGR WW Cap Discont" : { 'fn' : "../dat/01-LGR-WW-nocapcont.sr3" , 'c' : 'b', 'ls':'-' },
+        "LGR MW Cap Discont" : { 'fn' : "../dat-LGR/01-LGR-MW-nocapcont.sr3" , 'c' : 'r', 'ls':'-' },
+        "LGR OW Cap Discont" : { 'fn' : "../dat-LGR/01-LGR-OW-nocapcont.sr3" , 'c' : 'g', 'ls':'-' },
+        "LGR WW Cap Discont" : { 'fn' : "../dat-LGR/01-LGR-WW-nocapcont.sr3" , 'c' : 'b', 'ls':'-' },
+
+        "2P2K4 MW Cap Cont": { 'fn' : "../dat-2P2K/2P2K4-MW.sr3" , 'c' : 'r', 'ls': '-' },
+        "2P2K4 OW Cap Cont": { 'fn' : "../dat-2P2K/2P2K4-OW.sr3" , 'c' : 'g', 'ls': '-' },
+        "2P2K4 WW Cap Cont": { 'fn' : "../dat-2P2K/2P2K4-WW.sr3" , 'c' : 'b', 'ls': '-' },
 }
 
 oil_str = "Oil Volume SC SCTR"
