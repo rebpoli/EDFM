@@ -2,8 +2,8 @@
 
 #%% UPDATE TESTCASE CONFIGURATION
 
-#TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
-TIMESTEPS = [0, 50]
+TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
+#TIMESTEPS = [0, 50]
 
 #%% HELPER FUNCTIONS
 import h5py
@@ -115,10 +115,10 @@ class MODEL:
 
         ref = self.ref_model
 
-        ref_sw, ref_pv = ref.objective_arrays( ["SW", "BLOCKPVOL"], frac_krsetn=2 )
+        ref_sw, ref_pv = ref.objective_arrays( ["SW", "BLOCKPVOL"], ts, frac_krsetn=2 )
         ref_vw = ref_pv * ref_sw
 
-        trg_sw, trg_pv = self.objective_arrays( ["SW", "BLOCKPVOL"], frame_k=0 )
+        trg_sw, trg_pv = self.objective_arrays( ["SW", "BLOCKPVOL"], ts, frame_k=0 )
         trg_vw = trg_pv * trg_sw
 
         # Calculate the volumes of the reference model in the target
@@ -171,7 +171,7 @@ class MODEL:
     #
     #
     #
-    def objective_arrays( self, props, frac_krsetn=None, frame_k=None ) :
+    def objective_arrays( self, props, ts, frac_krsetn=None, frame_k=None ) :
         ret = []
         shape = self.shape()
         for p in props :
@@ -193,6 +193,19 @@ class MODEL:
             ret.append( pp )
 
         return ret
+
+    #
+    #
+    #
+    def distance( self, timesteps ) :
+        DIST = []
+        for ts in timesteps :
+            self.distance_from_ref(ts)
+            dist = _2P2K.distance_rel['sw']
+            dist = np.linalg.norm(dist)          
+            print(f"{ts:10d} {dist:.3f}")
+            DIST.append(dist)
+        return np.linalg.norm(DIST)
 
             
 
@@ -230,9 +243,9 @@ def run_imex(fn) :
         "chdir" : f"{chdir}",
         "wd" : f"{windir}",
         "modelURI" : f"{fn}",
-        "jobName" : fn,
+        "jobName" : basename,
         "solverNodes" : 1,
-        "solverCores" : 1,
+        "solverCores" : 12,
         "account" : "geomec",
         "slurm" : "-p pre",
         "jobComment" : fn,
@@ -265,7 +278,7 @@ def run_imex(fn) :
     def summary(log_fn) :
         print(f"Building summary for {log_fn}")
         ret = f"---- SUMMARY FROM {log_fn} -------\n"
-        filt = ["Elapsed", "Date and Time", "IMEX"]
+        filt = ["Elapsed", "Date and Time", "IMEX", "Material Balances"]
         file = open(log_fn, "r")
         for line in file:
             found = 0
@@ -277,13 +290,15 @@ def run_imex(fn) :
 
     summary(log_fn)
     print("DONE")
+    
+    return sr3_fn
 
 #
 # TEST ROUTINE
 #
 #fn = r"/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/SIM/TESTE/punq/PUNQ_MOD.dat"
 #fn = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4/round_0/run_0.dat"
-run_imex(fn)
+# run_imex(fn)
 
 #%%
 import re
@@ -323,9 +338,12 @@ round_id = 0
 run_id = 0
 tpl = f"{chdir}/2P2K4-MW.tpl"
 round_dir = f"{chdir}/round_{round_id}"
+
+print("Creating dir .....", end="")
 import os
 try: os.mkdir(ln2win(round_dir))
 except: pass
+print("[ok]")
 
 params = {
     '$DIFRAC' : 4,
@@ -334,4 +352,12 @@ params = {
 }
 
 fn = parse_tpl( params, tpl, round_dir, run_id )
-run_imex(fn)
+
+#%%
+sr3_fn = run_imex(fn)
+#%%
+print("OBJECTIVE FUNCTION: ")
+if sr3_fn :
+    _2P2K = MODEL(sr3_fn, _2p2k = True, ref_model = LGR)
+    dist = _2P2K.distance(TIMESTEPS)
+    print(f"COST: {dist:.3f}")
