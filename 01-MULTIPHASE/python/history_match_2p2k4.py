@@ -211,9 +211,9 @@ import pprint
 import re
 
 # Converts a linux path to a windows path
-def ln_to_win(fn) :
+def ln2win(fn) :
     ret = re.sub(r"/dfs_geral_ep/", r"\\\\dfs.petrobras.biz/cientifico/", fn)
-    ret = re.sub(r"/", r"\\", ret)
+    #ret = re.sub(r"/", r"\\", ret)
     return ret
 
 # Run imex. Returns when the run is over
@@ -221,11 +221,11 @@ def run_imex(fn) :
     basename = re.sub(r"^.*/","",fn)
     chdir = re.sub(r"(\/.+)/.+?$",r"\1",fn)
     
-    windir = ln_to_win(chdir)
+    windir = ln2win(chdir)
     fid = re.sub(r"\.\S+$","",basename)
     sr3_fn = f"{windir}/{fid}.sr3"
     log_fn = f"{windir}/{fid}.log"
-
+    
     params = {
         "chdir" : f"{chdir}",
         "wd" : f"{windir}",
@@ -240,11 +240,8 @@ def run_imex(fn) :
         "solverVersion" : "2023.10",
         "solverExtras" : ""
     }
-
+    
     setenv('','','',r'N:\.ssh\id_rsa')
-
-    pprint.pprint(params)
-
     id, stdout, stderr = sendJob(params)
 
     print (f"O id do job é {id}")
@@ -285,36 +282,49 @@ def run_imex(fn) :
 # TEST ROUTINE
 #
 #fn = r"/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/SIM/TESTE/punq/PUNQ_MOD.dat"
-#run_imex(fn)
+#fn = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4/round_0/run_0.dat"
+run_imex(fn)
 
 #%%
 import re
 
 # Parses a template into a final dat to run
 def parse_tpl( params, tpl, chdir, run_id ) :
+    print("Parsing tpl .....", end="")
+    # PROCEDURE : we are going to work on windows!
+    tpl = ln2win(tpl)
+    chdir = ln2win(chdir)
     # PROCEDURE : Read
     tplfh = open(tpl,"r")
-    lines = tplfh.read()
+    lines = tplfh.readlines()
     tplfh.close()
     # PROCEDURE : Replace
+    ret = ""
+    for line in lines :
+        # Replace the template tags
+        # Fix the includes
+        line = re.sub(r"^(\s*\*?include\s*('|\"))", r"\1../", line, flags=re.IGNORECASE) 
+        ret += line
+
     for k, v in params.items():
-        print(f"{k} => {v}")
-        lines = lines.replace( k, str(v) )
-    # PROCEDURE : Write
+        ret = ret.replace( k, str(v) )
+
+        # PROCEDURE : Write
     ofn = f"{chdir}/run_{run_id}.dat"
     ofh = open(ofn, "w")
-    ofh.write(lines)
+    ofh.write(ret)
     ofh.close()
     
+    print("[ok]")
     return ofn
 
-chdir = "history_match_2p2k4"
+chdir = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4"
 round_id = 0
 run_id = 0
 tpl = f"{chdir}/2P2K4-MW.tpl"
 round_dir = f"{chdir}/round_{round_id}"
 import os
-try: os.mkdir(round_dir)
+try: os.mkdir(ln2win(round_dir))
 except: pass
 
 params = {
@@ -324,4 +334,4 @@ params = {
 }
 
 fn = parse_tpl( params, tpl, round_dir, run_id )
-
+run_imex(fn)

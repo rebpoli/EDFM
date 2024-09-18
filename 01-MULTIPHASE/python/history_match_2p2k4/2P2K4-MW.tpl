@@ -1,8 +1,8 @@
 ** 2024-05-21, 12:52:04, BFQ9
 RESULTS SIMULATOR IMEX 2024.10.557b40a19d
 
-INCLUDE '../inc/io.inc'
-INCLUDE '../inc/mesh-2P2K4.inc'
+INCLUDE '../../inc/io.inc'
+INCLUDE '../../inc/mesh-2P2K4.inc'
 
 DIFRAC CON $DIFRAC 
 DJFRAC CON $DIFRAC
@@ -44,10 +44,10 @@ RTYPE MATRIX CON 1
 RTYPE FRACTURE CON 2
 
 *RPT 1
-INCLUDE '../inc/swt-mw.inc'
+INCLUDE '../../inc/swt-mw.inc'
 
 *RPT 2
-INCLUDE '../inc/swt-mw-frac.inc'
+INCLUDE '../../inc/swt-mw-frac.inc'
 
 **
 **
@@ -67,7 +67,7 @@ DGOC       1000.0 1000.0
 DWOC       6000.0 4000.0    ** Fractures saturated with water
 
 NUMERICAL
-INCLUDE '../inc/numerical.inc'
+INCLUDE '../../inc/numerical.inc'
 
 RUN
 DATE	2000	1	1.0000000	 ** 15 min interval
