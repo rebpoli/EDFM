@@ -1,6 +1,11 @@
 #!/usr/bin/env -S python3 
 
-#%%
+#%% UPDATE TESTCASE CONFIGURATION
+
+#TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
+TIMESTEPS = [0, 50]
+
+#%% HELPER FUNCTIONS
 import h5py
 import numpy as np
 import pandas as pd
@@ -8,170 +13,315 @@ import matplotlib.pyplot as plt
 
 import ogsim
 
-def xyz_coords_2p2k( DF ) :
-    cx = DF.loc[:,0,0,"matrix",0]
-    cy = DF.loc[0,:,0,"matrix",0]
-    cz = DF.loc[0,0,:,"matrix",0]
+#
+#
+#
+class MODEL:
+    def __init__(self, sr3, _2p2k=False, ref_model=None) :
+        self._2p2k = _2p2k
+        self.ref_model = ref_model
 
-    cx = cx.assign( X1=lambda dfx:dfx.DX.cumsum())
-    cy = cy.assign( Y1=lambda dfy:dfy.DY.cumsum())
-    cz = cz.assign( Z1=lambda dfz:dfz.DZ.cumsum())
-    cx["X0"] = cx.X1.shift(1).fillna(0)
-    cy["Y0"] = cy.Y1.shift(1).fillna(0)
-    cz["Z0"] = cz.Z1.shift(1).fillna(0)
+        self.imex = ogsim.IMEX(sr3)
+        imex = self.imex
 
+        # PROCEDURE : Load properties of interest
+        imex.load_properties(
+                            grid_properties=["SW", "KRSETN","BLOCKPVOL"], 
+                            twophi2k=_2p2k,
+                            load_geometry=True,
+                            geometry_type='all',
+                            timestep_idx=TIMESTEPS
+                            )
 
-    # Create lists of coordinates - easier to manipulate
-    X1 = cx.X1.to_list()
-    Y1 = cy.Y1.to_list()
-    Z1 = cz.Z1.to_list()
-    return ( X1, Y1, Z1 )    
+        # PROCEDURE : Organize grid properties into dataframe, indexed by "Offset in days"
+        grid = imex.grid
+        grid = grid.assign_coords(**{"Offset in days":("Date", grid.coords["Offset in days"].values)})
+        self.df = grid.swap_dims({"Date":"Offset in days"}).to_dataframe()
 
-def xyz_coords_lgr( DF ) :
-    cx = DF.loc[:,0,0,0]
-    cy = DF.loc[0,:,0,0]
-    cz = DF.loc[0,0,:,0]
+        # PROCEDURE : resolve the X,Y,Z coordinates of each cell in the model.        
+        self.resolve_xyz()
+        self.build_overlaps()
 
-    cx = cx.assign( X1=lambda dfx:dfx.DX.cumsum())
-    cy = cy.assign( Y1=lambda dfy:dfy.DY.cumsum())
-    cz = cz.assign( Z1=lambda dfz:dfz.DZ.cumsum())
-    cx["X0"] = cx.X1.shift(1).fillna(0)
-    cy["Y0"] = cy.Y1.shift(1).fillna(0)
-    cz["Z0"] = cz.Z1.shift(1).fillna(0)
+    # 
+    #
+    #
+    def resolve_xyz(self) :
+        df = self.df
+        if self._2p2k :
+            cx = df.loc[:,0,0,"matrix",0]
+            cy = df.loc[0,:,0,"matrix",0]
+            cz = df.loc[0,0,:,"matrix",0]
+        else :
+            cx = df.loc[:,0,0,0]
+            cy = df.loc[0,:,0,0]
+            cz = df.loc[0,0,:,0]
 
+        cx = cx.assign( X1=lambda dfx:dfx.DX.cumsum())
+        cy = cy.assign( Y1=lambda dfy:dfy.DY.cumsum())
+        cz = cz.assign( Z1=lambda dfz:dfz.DZ.cumsum())
+        cx["X0"] = cx.X1.shift(1).fillna(0)
+        cy["Y0"] = cy.Y1.shift(1).fillna(0)
+        cz["Z0"] = cz.Z1.shift(1).fillna(0)
 
-    # Create lists of coordinates - easier to manipulate
-    X1 = cx.X1.to_list()
-    Y1 = cy.Y1.to_list()
-    Z1 = cz.Z1.to_list()
-    return ( X1, Y1, Z1 )    
+        # Create lists of coordinates - easier to manipulate
+        self.X1 = cx.X1.to_list()
+        self.Y1 = cy.Y1.to_list()
+        self.Z1 = cz.Z1.to_list()
 
-#%% PROCEDURE: Load coarse 2p2k grid and find coordinates
+    #
+    #
+    #
+    def build_overlaps(self) :
+        ref = self.ref_model
+        if not ref : return
 
-#TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
-TIMESTEPS = [0, 400]
+        # Typically refX is the coarse model and trgX is the fine one
+        def _build_Xx_map(refX, trgX) :
+            Xx = np.zeros( [len(trgX), len(refX)] )
+            for i in range( len(trgX) ) :
+                _x0 = 0
+                if i : _x0 = trgX[i-1]
+                _x1 = trgX[i]
+                
+                for j in range( len(refX) ) :
+                    _x0f = 0
+                    if j : _x0f = refX[j-1]
+                    _x1f = refX[j]
+                    _l = _x1f - _x0f
+                
+                    # Find the overlap
+                    if _x0f > _x1 : continue # no everlap
+                    if _x1f < _x0 : continue # no everlap
+                    if _x0f < _x0 : _x0f = _x0
+                    if _x1f > _x1 : _x1f = _x1
 
-#fn = r"2P2K4-MW.dat"
-#imex = ogsim.IMEX(fn)
-#imex.run(nproc=12)
-imex_2p2k = ogsim.IMEX(r"..\dat-2P2K\2P2K4-MW.sr3")
-imex_2p2k.load_properties(
-                    grid_properties=["SW", "KRSETN", "BLOCKPVOL"],
-                    twophi2k=True, load_geometry=True, 
-                    geometry_type='all',
-                    timestep_idx=TIMESTEPS )
-                    
-props_2p2k = imex_2p2k.grid
-props_2p2k = imex_2p2k.grid.assign_coords(**{"Offset in days":("Date", props_2p2k.coords["Offset in days"].values)})
-df_2p2k = props_2p2k.swap_dims({"Date":"Offset in days"}).to_dataframe()
-X1, Y1, Z1 = xyz_coords_2p2k( df_2p2k )
+                    Xx[i,j] = (_x1f - _x0f) / _l
+            return Xx
 
-#%% PROCEDURE: Load fine LGR grid and find coordinates
-imex_lgr = ogsim.IMEX(r"..\dat-LGR\01-LGR-MW.sr3")
-imex_lgr.load_properties(
-                    grid_properties=["SW", "KRSETN","BLOCKPVOL"], 
-                    load_geometry=True, geometry_type='all',
-                    timestep_idx=TIMESTEPS )
-props_lgr = imex_lgr.grid
-props_lgr = imex_lgr.grid.assign_coords(**{"Offset in days":("Date", props_lgr.coords["Offset in days"].values)})
-df_lgr = props_lgr.swap_dims({"Date":"Offset in days"}).to_dataframe()
-X1f, Y1f, Z1f = xyz_coords_lgr( df_lgr )
+        self.Xx = _build_Xx_map( ref.X1, self.X1 )
+        self.Yy = _build_Xx_map( ref.Y1, self.Y1 )
+        self.Zz = _build_Xx_map( ref.Z1, self.Z1 )
+        print(f"SHAPE-Yy: {np.shape(self.Yy)}")
 
-#%% PROCEDURE: Compute overlap maps
-
-# X is the macroblock ; x is the fine block
-# Build the map of contribution of each fine block into the coarse block
-def build_overlap_map( X, x ) :
-    Xx = np.zeros( [len(X), len(x)] )
-    for i in range( len(X) ) :
-        _x0 = 0
-        if i : _x0 = X[i-1]
-        _x1 = X[i]
-        
-        for j in range( len(x) ) :
-            _x0f = 0
-            if j : _x0f = x[j-1]
-            _x1f = x[j]
-            _l = _x1f - _x0f
-          
-            # Find the overlap
-            if _x0f > _x1 : continue # no everlap
-            if _x1f < _x0 : continue # no everlap
-            if _x0f < _x0 : _x0f = _x0
-            if _x1f > _x1 : _x1f = _x1
-
-            Xx[i,j] = (_x1f - _x0f) / _l
+    def shape(self) :
+        return [ len(self.X1), len(self.Y1), len(self.Z1) ]
     
-    return Xx
+
+    #
+    # Compute the distance from the current model to a reference model
+    #
+    def distance_from_ref( self, ts ) :
+        print(f"Processing timestep {ts} ...")
+
+        ref = self.ref_model
+
+        ref_sw, ref_pv = ref.objective_arrays( ["SW", "BLOCKPVOL"], frac_krsetn=2 )
+        ref_vw = ref_pv * ref_sw
+
+        trg_sw, trg_pv = self.objective_arrays( ["SW", "BLOCKPVOL"], frame_k=0 )
+        trg_vw = trg_pv * trg_sw
+
+        # Calculate the volumes of the reference model in the target
+        PV_from_ref = np.zeros_like(trg_pv)
+        VW_from_ref = np.zeros_like(trg_pv)
+        SW_from_ref = np.zeros_like(trg_pv)
         
-Xx = build_overlap_map( X1, X1f )
-Yy = build_overlap_map( Y1, Y1f )
-Zz = build_overlap_map( Z1, Z1f )
+        Xx,Yy,Zz = self.Xx, self.Yy, self.Zz
+        for I in range( len(Xx) ) :
+            for J in range( len(Yy) ) :
+                for K in range( len(Zz) ) :
 
-#%%
+                    # PROCEDURE : Compute the volumes of pore and water in the coarse mesh from the fine data.                    
+                    for i in range(len(Xx[I])) :
+                        px = Xx[I,i]
+                        if not px : continue
+                        for j in range(len(Yy[J])) :
+                            pyx = Yy[J,j] * px
+                            if not pyx : continue
+                            for k in range(len(Zz[K])) :
+                                pzyx = Zz[K,k] * pyx
+                                if not pzyx : continue
 
-nx,ny,nz = len(X1f), len(Y1f), len(Z1f)
-shape_lgr = [ nx, ny, nz ]
-FRAC_LGR = df_lgr.loc[:,:,:,0]["KRSETN"].to_numpy().reshape( shape_lgr )
-FRAC_LGR = ( FRAC_LGR == 2 )
+                                # Increment.
+                                VW_from_ref[I,J,K] += ref_vw[i,j,k] * pzyx
+                                PV_from_ref[I,J,K] += ref_pv[i,j,k] * pzyx
 
-shape_2p2k = [ len(X1), len(Y1), len(Z1) ]
-FRAME_2P2K = np.full( shape_2p2k, False ) 
-FRAME_2P2K[:,:,0] = True
+                    # PROCEDURE : Compute the water saturation
+                    if  PV_from_ref[I,J,K] == 0 :
+                        SW_from_ref[I,J,K] = 0
+                    else :
+                        SW_from_ref[I,J,K] = VW_from_ref[I,J,K] / PV_from_ref[I,J,K]
+        
+
+        self.ref_arr = { 'sw':SW_from_ref, 'vw':VW_from_ref, 'pv':PV_from_ref }
+        self.trg_arr = { 'sw':trg_sw,      'vw':trg_vw,      'pv':trg_pv }
+
+        self.distance = {
+            'sw' : abs( self.ref_arr['sw'] - self.trg_arr['sw'] ),
+            'vw' : abs( self.ref_arr['vw'] - self.trg_arr['vw'] ),
+            'pv' : abs( self.ref_arr['pv'] - self.trg_arr['pv'] )
+        }
+
+        self.distance_rel = {
+            'sw' : self.distance['sw'] / ( self.ref_arr['sw'] + .0001),
+            'vw' : self.distance['vw'] / ( self.ref_arr['vw'] + 1 ),
+            'pv' : self.distance['pv'] / ( self.ref_arr['pv'] + 1 ),
+        }
+
+    #
+    #
+    #
+    def objective_arrays( self, props, frac_krsetn=None, frame_k=None ) :
+        ret = []
+        shape = self.shape()
+        for p in props :
+            if self._2p2k :
+                pp = self.df.loc[:,:,:,"matrix",ts][p].to_numpy().reshape( shape )
+                pp[np.isnan(pp)] = 0
+            else :
+                pp = self.df.loc[:,:,:,ts][p].to_numpy().reshape( shape )
+                if frac_krsetn != None :
+                    _sel = self.df.loc[:,:,:,0]["KRSETN"].to_numpy().reshape( shape )
+                    _sel = ( _sel == frac_krsetn )
+                    pp[_sel] = 0
+            
+            if frame_k != None :
+                _sel = np.full( self.shape(), False ) 
+                _sel[:,:,frame_k] = True
+                pp[_sel] = 0
+            
+            ret.append( pp )
+
+        return ret
+
+            
+
+###%% PROCEDURE: Load fine LGR grid and find coordinates
+LGR = MODEL(r"..\dat-LGR\01-LGR-MW.sr3")
+_2P2K = MODEL(r"..\dat-2P2K\2P2K4-MW.sr3", _2p2k = True, ref_model = LGR)
 
 for ts in TIMESTEPS :
-    print(f"Processing timestep {ts} ...")
-    SWf = df_lgr.loc[:,:,:,ts]["SW"].to_numpy().reshape( shape_lgr )
-    VPf = df_lgr.loc[:,:,:,ts]["BLOCKPVOL"].to_numpy().reshape( shape_lgr )
-    VPf[FRAC_LGR] = 0 # we are only interested in matrix cells
-    VWf = VPf * SWf
+    _2P2K.distance_from_ref(ts)
+       
+
+#%%
+#!/usr/bin/env -S python3 
+from pyhpc import sendJob, setenv, jobs
+import pprint
+import re
+
+# Converts a linux path to a windows path
+def ln_to_win(fn) :
+    ret = re.sub(r"/dfs_geral_ep/", r"\\\\dfs.petrobras.biz/cientifico/", fn)
+    ret = re.sub(r"/", r"\\", ret)
+    return ret
+
+# Run imex. Returns when the run is over
+def run_imex(fn) :
+    basename = re.sub(r"^.*/","",fn)
+    chdir = re.sub(r"(\/.+)/.+?$",r"\1",fn)
     
-    SW = df_2p2k.loc[:,:,:,"matrix",ts]["SW"].to_numpy().reshape( shape_2p2k )
-    VP = df_2p2k.loc[:,:,:,"matrix",ts]["BLOCKPVOL"].to_numpy().reshape( shape_2p2k )
-    VP[FRAME_2P2K] = 0
-    VW = VP * SW
+    windir = ln_to_win(chdir)
+    fid = re.sub(r"\.\S+$","",basename)
+    sr3_fn = f"{windir}/{fid}.sr3"
+    log_fn = f"{windir}/{fid}.log"
+
+    params = {
+        "chdir" : f"{chdir}",
+        "wd" : f"{windir}",
+        "modelURI" : f"{fn}",
+        "jobName" : fn,
+        "solverNodes" : 1,
+        "solverCores" : 1,
+        "account" : "geomec",
+        "slurm" : "-p pre",
+        "jobComment" : fn,
+        "solverName" : "imex",
+        "solverVersion" : "2023.10",
+        "solverExtras" : ""
+    }
+
+    setenv('','','',r'N:\.ssh\id_rsa')
+
+    pprint.pprint(params)
+
+    id, stdout, stderr = sendJob(params)
+
+    print (f"O id do job é {id}")
+    if stdout :
+        for line in stdout: print(line)
+
+    print ("stderr:")
+    if stderr :
+        for line in stderr: print(line)
+
+    from time import sleep
+    while (True) :
+        JOBS = {}
+        for i in jobs() : JOBS[i["id"]] = i
+        if not len(JOBS) : break # Done
+        j = JOBS[id]
+        print(f"Job '{j["name"]}' ({j["id"]}) => {j['state']}")
+        sleep(.2)
+
+    # Find whatever is useful in the log file
+    def summary(log_fn) :
+        print(f"Building summary for {log_fn}")
+        ret = f"---- SUMMARY FROM {log_fn} -------\n"
+        filt = ["Elapsed", "Date and Time", "IMEX"]
+        file = open(log_fn, "r")
+        for line in file:
+            found = 0
+            for f in filt:
+                if re.search(f, line): found=1 ; break
+            if found : ret += line
+        ret += f"---- ****||||**** -------\n"
+        print(ret)
+
+    summary(log_fn)
+    print("DONE")
+
+#
+# TEST ROUTINE
+#
+#fn = r"/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/SIM/TESTE/punq/PUNQ_MOD.dat"
+#run_imex(fn)
+
+#%%
+import re
+
+# Parses a template into a final dat to run
+def parse_tpl( params, tpl, chdir, run_id ) :
+    # PROCEDURE : Read
+    tplfh = open(tpl,"r")
+    lines = tplfh.read()
+    tplfh.close()
+    # PROCEDURE : Replace
+    for k, v in params.items():
+        print(f"{k} => {v}")
+        lines = lines.replace( k, str(v) )
+    # PROCEDURE : Write
+    ofn = f"{chdir}/run_{run_id}.dat"
+    ofh = open(ofn, "w")
+    ofh.write(lines)
+    ofh.close()
     
-    VP_from_fine = np.zeros_like(VP)
-    VW_from_fine = np.zeros_like(VP)
-    SW_from_fine = np.zeros_like(VP)
-    
-    # Map VW from the fine grid to the corse grid
-    for I in range( len(Xx) ) :
-        for J in range( len(Yy) ) :
-            for K in range( len(Zz) ) :
-                VWf_TOT = 0
-                VPf_TOT = 0
-                
-                for i in range(nx) :
-                    px = Xx[I,i]
-                    if not px : continue
-                    for j in range(ny) :s
-                        pyx = Yy[J,j] * px
-                        if not pyx : continue
-                        for k in range(nz) :
-                            pzyx = Zz[K,k] * pyx
-                            if not pzyx : continue
-                            VWf_TOT += VWf[i,j,k] * pzyx
-                            VPf_TOT += VPf[i,j,k] * pzyx
-                            
-                # VW holds the water volume in the fine grid associated 
-                # with the large grid cell I,J,K
-                vw_ = VW[I,J,K]
-                vp_ = VP[I,J,K]
-                sw_ = vw_/vp_
-                
-                vwf_ = VWf_TOT
-                vpf_ = VPf_TOT
-                if vpf_ == 0 : swf_ = 0
-                else : swf_ = vwf_ / vpf_
-                
-                VP_from_fine[I,J,K] = vpf_
-                VW_from_fine[I,J,K] = vwf_
-                SW_from_fine[I,J,K] = swf_
-                #print(f"I,J,K:{I},{J},{K} -- VW,VP,SW={vw_:.1f},{vp_:.1f},{sw_:.5f} VWf,VPf,SWf={vwf_:.1f},{vpf_:.1f},{swf_:.5f}" )
-                
-                
-                
-                
-                
-# %%
+    return ofn
+
+chdir = "history_match_2p2k4"
+round_id = 0
+run_id = 0
+tpl = f"{chdir}/2P2K4-MW.tpl"
+round_dir = f"{chdir}/round_{round_id}"
+import os
+try: os.mkdir(round_dir)
+except: pass
+
+params = {
+    '$DIFRAC' : 4,
+    '$PERMI_MATRIX' : 100,
+    '$PERMI_FRACTURE' : 250
+}
+
+fn = parse_tpl( params, tpl, round_dir, run_id )
+
