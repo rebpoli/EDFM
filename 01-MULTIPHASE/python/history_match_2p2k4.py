@@ -1,12 +1,8 @@
-#!/usr/bin/env -S python3 
-
-#%% UPDATE TESTCASE CONFIGURATION
+#%% Helper stuff
 
 TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
-#TIMESTEPS = [0, 50]
 
-#%% HELPER FUNCTIONS
-import h5py
+from time import sleep
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -101,7 +97,6 @@ class MODEL:
         self.Xx = _build_Xx_map( ref.X1, self.X1 )
         self.Yy = _build_Xx_map( ref.Y1, self.Y1 )
         self.Zz = _build_Xx_map( ref.Z1, self.Z1 )
-        print(f"SHAPE-Yy: {np.shape(self.Yy)}")
 
     def shape(self) :
         return [ len(self.X1), len(self.Y1), len(self.Z1) ]
@@ -111,8 +106,6 @@ class MODEL:
     # Compute the distance from the current model to a reference model
     #
     def distance_from_ref( self, ts ) :
-        print(f"Processing timestep {ts} ...")
-
         ref = self.ref_model
 
         ref_sw, ref_pv = ref.objective_arrays( ["SW", "BLOCKPVOL"], ts, frac_krsetn=2 )
@@ -130,7 +123,7 @@ class MODEL:
         for I in range( len(Xx) ) :
             for J in range( len(Yy) ) :
                 for K in range( len(Zz) ) :
-
+                    _vw, _pv, _sw = 0, 0, 0
                     # PROCEDURE : Compute the volumes of pore and water in the coarse mesh from the fine data.                    
                     for i in range(len(Xx[I])) :
                         px = Xx[I,i]
@@ -141,17 +134,17 @@ class MODEL:
                             for k in range(len(Zz[K])) :
                                 pzyx = Zz[K,k] * pyx
                                 if not pzyx : continue
-
-                                # Increment.
-                                VW_from_ref[I,J,K] += ref_vw[i,j,k] * pzyx
-                                PV_from_ref[I,J,K] += ref_pv[i,j,k] * pzyx
+                                _vw += ref_vw[i,j,k] * pzyx
+                                _pv += ref_pv[i,j,k] * pzyx
+                                    
+                    VW_from_ref[I,J,K] += _vw
+                    PV_from_ref[I,J,K] += _pv
 
                     # PROCEDURE : Compute the water saturation
                     if  PV_from_ref[I,J,K] == 0 :
                         SW_from_ref[I,J,K] = 0
                     else :
                         SW_from_ref[I,J,K] = VW_from_ref[I,J,K] / PV_from_ref[I,J,K]
-        
 
         self.ref_arr = { 'sw':SW_from_ref, 'vw':VW_from_ref, 'pv':PV_from_ref }
         self.trg_arr = { 'sw':trg_sw,      'vw':trg_vw,      'pv':trg_pv }
@@ -191,7 +184,6 @@ class MODEL:
                 pp[_sel] = 0
             
             ret.append( pp )
-
         return ret
 
     #
@@ -199,26 +191,19 @@ class MODEL:
     #
     def distance( self, timesteps ) :
         DIST = []
+        print(f"{"TS":^10s} | {"Cost":^10s}\n{25*'-'}")
         for ts in timesteps :
             self.distance_from_ref(ts)
-            dist = _2P2K.distance_rel['sw']
+            dist = self.distance_rel['sw']
             dist = np.linalg.norm(dist)          
-            print(f"{ts:10d} {dist:.3f}")
+            print(f"{ts:^10d} | {dist:^10.3f}")
             DIST.append(dist)
-        return np.linalg.norm(DIST)
 
-            
+        ret = np.linalg.norm(DIST)
+        print(25*'-')
+        print(f"{"Norm:":^10s} | {ret:^10.3f}")
+        return ret
 
-###%% PROCEDURE: Load fine LGR grid and find coordinates
-LGR = MODEL(r"..\dat-LGR\01-LGR-MW.sr3")
-_2P2K = MODEL(r"..\dat-2P2K\2P2K4-MW.sr3", _2p2k = True, ref_model = LGR)
-
-for ts in TIMESTEPS :
-    _2P2K.distance_from_ref(ts)
-       
-
-#%%
-#!/usr/bin/env -S python3 
 from pyhpc import sendJob, setenv, jobs
 import pprint
 import re
@@ -265,14 +250,12 @@ def run_imex(fn) :
     if stderr :
         for line in stderr: print(line)
 
-    from time import sleep
     while (True) :
         JOBS = {}
         for i in jobs() : JOBS[i["id"]] = i
-        if not len(JOBS) : break # Done
-        j = JOBS[id]
-        print(f"Job '{j["name"]}' ({j["id"]}) => {j['state']}")
-        sleep(.2)
+        if not id in JOBS : break # Done
+        print(f"id:{id} // JOBS:{JOBS}")
+        sleep(1)
 
     # Find whatever is useful in the log file
     def summary(log_fn) :
@@ -293,19 +276,9 @@ def run_imex(fn) :
     
     return sr3_fn
 
-#
-# TEST ROUTINE
-#
-#fn = r"/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/SIM/TESTE/punq/PUNQ_MOD.dat"
-#fn = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4/round_0/run_0.dat"
-# run_imex(fn)
-
-#%%
 import re
-
 # Parses a template into a final dat to run
 def parse_tpl( params, tpl, chdir, run_id ) :
-    print("Parsing tpl .....", end="")
     # PROCEDURE : we are going to work on windows!
     tpl = ln2win(tpl)
     chdir = ln2win(chdir)
@@ -330,34 +303,110 @@ def parse_tpl( params, tpl, chdir, run_id ) :
     ofh.write(ret)
     ofh.close()
     
-    print("[ok]")
     return ofn
 
-chdir = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4"
-round_id = 0
-run_id = 0
-tpl = f"{chdir}/2P2K4-MW.tpl"
-round_dir = f"{chdir}/round_{round_id}"
+#
+# fn : 
+#
+def objective_function( params, tpl, chdir, round_id, run_id ) :
+    global TIMESTEPS, LGR
+    
+    print("Running objective function...")
+    round_dir = f"{chdir}/round_{round_id}"
 
-print("Creating dir .....", end="")
-import os
-try: os.mkdir(ln2win(round_dir))
-except: pass
-print("[ok]")
+    import os
+    try: os.mkdir(ln2win(round_dir))
+    except: pass
+    
+    fn = parse_tpl( params, tpl, round_dir, run_id )
+    sr3_fn = run_imex(fn)
+    
+    cost = None
+    if sr3_fn :
+        _mod = MODEL(sr3_fn, _2p2k = True, ref_model = LGR)
+        cost = _mod.distance(TIMESTEPS)
+    
+    return cost
+    
+    
+#%% MAIN ROUTINE
 
-params = {
-    '$DIFRAC' : 4,
-    '$PERMI_MATRIX' : 100,
-    '$PERMI_FRACTURE' : 250
-}
+# PROCEDURE: Load fine LGR (reference) grid
+LGR = MODEL(r"..\dat-LGR\01-LGR-MW.sr3")
 
-fn = parse_tpl( params, tpl, round_dir, run_id )
 
-#%%
-sr3_fn = run_imex(fn)
-#%%
-print("OBJECTIVE FUNCTION: ")
-if sr3_fn :
-    _2P2K = MODEL(sr3_fn, _2p2k = True, ref_model = LGR)
-    dist = _2P2K.distance(TIMESTEPS)
-    print(f"COST: {dist:.3f}")
+
+#%% Otimizador
+from skopt import gp_minimize, Optimizer
+from skopt.space import Real
+from joblib import Parallel, delayed
+
+def _ob_fun(params) :
+    chdir = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4"
+    round_id = params["$ROUND_ID"]
+    run_id = params["$RUN_ID"]
+    tpl = f"{chdir}/2P2K4-MW.tpl"
+    round_dir = ln2win(f"{chdir}/round_{round_id}")
+    import os
+    try: os.mkdir(ln2win(round_dir))
+    except: pass
+    
+    import sys
+    OFH = open(f"{round_dir}/run_ob_fun_{run_id}.log",'w', 1)
+    OFH.write(f"Params: {params}!\n")
+    sys.stdout=OFH
+    sys.stderr=OFH
+    print("Hello world!")
+    
+    cost = objective_function( params, tpl, chdir, round_id, run_id )
+    print(f"cost: {cost}")
+    
+    OFH.close()
+    return cost
+    
+# Dimensions: DIFRAC, PERMI_MATRIX, PERMI_FRACTURE
+optimizer = Optimizer(
+    #           DIFRAC       log(PERM_FRAC)
+    dimensions=[Real(1,50), Real(2,3)],
+    random_state=1,
+    base_estimator='gp',
+    n_initial_points=10
+)
+
+run_per_round = 20
+n_rounds = 20
+for round_id in range(n_rounds) :
+    print(f"Starting round {round_id} ...")
+
+    # PROCEDURE : Get next round from optimizer
+    x = optimizer.ask(n_points=run_per_round)
+    X = []
+
+    # PROCEDURE : Prepare parameter list
+    for i in range(len(x)) :
+        par = x[i]
+        r = {
+            '$DIFRAC'         : par[0],
+            '$PERMI_MATRIX'   : 100,
+            '$PERMI_FRACTURE' : 10**par[1],
+            '$RUN_ID'         : i,
+            '$ROUND_ID'       : round_id
+        }
+        X.append(r)
+
+    # PROCEDURE : Do the runs   
+    print(f"Launching runs ...")
+    y = Parallel(n_jobs=10, verbose=1)(delayed(_ob_fun)(par) for par in X)
+    
+    print(f"Cost of each run -- ROUND: {round_id}:")
+    print(f"{"RUN ID":^10s} {"DIFRAC":^10s} {"PERMI_MATRIX":^20s} {"PERMI_FRACTURE":^20s} {"COST":^10s}")
+    for i in range(len(y)) :
+        print(f"{X[i]["$RUN_ID"]:^10d} {X[i]["$DIFRAC"]:^10.2f} {X[i]["$PERMI_MATRIX"]:^20.2f} {X[i]["$PERMI_FRACTURE"]:^20.2f} {y[i]:^.2f}")
+    print("-------")
+    
+    # PROCEDURE : Update optimizer with information
+    print(f"Update optimizer ...")
+    optimizer.tell(x,y)
+
+print("Done")
+# %%

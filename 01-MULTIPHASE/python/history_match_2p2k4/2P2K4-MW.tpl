@@ -34,7 +34,7 @@ BG 'frame' * 1e6
 **
 **
 **
-INCLUDE '../inc/model.inc'
+INCLUDE '../../inc/model.inc'
 
 **
 **
@@ -47,7 +47,13 @@ RTYPE FRACTURE CON 2
 INCLUDE '../../inc/swt-mw.inc'
 
 *RPT 2
-INCLUDE '../../inc/swt-mw-frac.inc'
+*SWT
+   ** SW   KRW   KROW   
+    0     0.00   1.00
+    1.00  1.00   0.00                         
+
+** *RPT 2
+** INCLUDE '../../inc/swt-mw-frac.inc'
 
 **
 **
