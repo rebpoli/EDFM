@@ -22,7 +22,7 @@ NULL CON 1
 POR MATRIX CON 0.13903 ** porosity of the matrix has to be adjusted: \phi = 0.15 * 3.9^3 / 4^3 = 0.9268
 POR FRACTURE CON 0.0025
 
-VOLMOD CON 1
+VOLMOD FRACTURE CON 1
 MOD
 BG 'frame' * 1e6
 
@@ -48,9 +48,9 @@ INCLUDE '../../inc/swt-mw.inc'
 
 *RPT 2
 *SWT
-   ** SW   KRW   KROW   
-    0     0.00   1.00
-    1.00  1.00   0.00                         
+    ** SW   KRW   KROW   
+     0     0.00   1.00
+     1.00  1.00   0.00                         
 
 ** *RPT 2
 ** INCLUDE '../../inc/swt-mw-frac.inc'
