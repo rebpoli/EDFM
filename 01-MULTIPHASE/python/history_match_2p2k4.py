@@ -1,3 +1,5 @@
+#!/usr/bin/python3 
+
 #%% Helper stuff
 
 TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
