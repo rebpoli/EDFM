@@ -3,13 +3,13 @@
 import os,time
 
 class SSH :
-    def __init__(self, server) :
+    def __init__(self, server, quiet=1, debug=0) :
         self.ENDTAG = "THIS IS AN END TAG. THIS IS AN END TAG. THIS IS AN END TAG."
         self.SERVER = server
 
         # Controls verbosity
-        self.quiet = 1
-        self.debug = 0
+        self.quiet = quiet
+        self.debug = debug
 
         # Lets go!
         self.connect()
@@ -87,7 +87,7 @@ class SSH :
             if stderr_line :
                 # The command is over and we have seen the endtag.
                 if stderr_line.strip() == endtag :
-                    print("#SSH#debug# Found end tag.")
+                    if self.debug : print("#SSH#debug# Found end tag.")
                     status = "endtag"
                     break 
                 if not quiet : print(stderr_line.strip())
@@ -114,7 +114,6 @@ class SSH :
 
     #
     #
-    #
     def cmd( self, cmd, timeout=5 ) :
         proc = self.PROC
         quiet = self.quiet
@@ -122,16 +121,16 @@ class SSH :
         #
         # PROCEDURE : Run command in remote host
         #
-        print(f"#SSH# Running command: $ \"{cmd}\" ...")
+        if not quiet : 
+            print(f"#SSH# Running command: $ \"{cmd}\" ...")
+
         proc.stdin.write(f"{cmd}\n")
         proc.stdin.flush()
         
         return self.flush( timeout )
 
-    ## FACILITIES TO CONTROL THE CLUSTER SUBMISSIONS
     #
     # Return the number of processes running currently
-    #
     def n_jobs_running( deb = 0 ) :
         # Flush outputs
         n_tries = 0

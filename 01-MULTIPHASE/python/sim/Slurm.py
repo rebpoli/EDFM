@@ -1,3 +1,4 @@
+import re, os
 
 class Slurm :
 
@@ -36,6 +37,30 @@ class Slurm :
     #
     #
     #
+    def running_jobs( self, myjobs = "" ) :
+        ssh = self.ssh
+        if not isinstance(myjobs, list):
+            myjobs = [myjobs] 
+        myjobs = [ str(i) for i in myjobs if i ] # Lets work with strings
+
+        user = os.getlogin()
+
+        jobs = []
+        sq = (f"squeue -h -u {user} "+r' --format "%A;%M;%N;%P;%T;%V;%o;%a;%j"  --sort=-S')
+        ssh.cmd( sq )
+        for l in ssh.stdout.splitlines() :
+            ll = l.split(';')
+            jid = ll[0]
+            if len(myjobs) :
+                if not jid in myjobs : continue
+            jobs.append( jid )
+
+        return jobs
+        
+
+    #
+    #
+    #
     def squeue( self, myjobs = "" ) :
         ssh = self.ssh
         if not isinstance(myjobs, list):
@@ -50,7 +75,6 @@ class Slurm :
         ssh.cmd( sq )
         for l in ssh.stdout.splitlines() :
             ll = l.split(';')
-            print(f"myjobs:{myjobs}")
             if len(myjobs) :
                 jid = ll[0]
                 if not jid in myjobs : continue
