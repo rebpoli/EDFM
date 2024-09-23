@@ -7,9 +7,12 @@ from pprint import pprint
 
 import os
 
+#
+# Base class. Other params must be set on child class
 class Sim :
-    # To be called from the child class only
     def __init__( self, dat_fn, ssh, debug ) :
+        self.jid = -1
+
         # PROCEDURE : resolve file names
         from os.path import splitext, basename, dirname, abspath
         self.debug=debug
@@ -18,6 +21,7 @@ class Sim :
         chdir = dirname(fn)
         bn = basename(fn)
 
+        # Validation
         if ext != "dat" :
             print(f"FAIL: Expecting a dat file. Extension found: {ext}")
             exit(-1)
@@ -41,11 +45,9 @@ class Sim :
         if not ssh : ssh = SSH( "reslogin", quiet=1, debug=0 )
         self.ssh = ssh
 
-        # Finally
-        jid = -1
 
     #
-    # wait: exit only after job is done
+    # wait: return only after job is done
     def run( self, wait=True ) :
         ssh = self.ssh
 
@@ -141,3 +143,10 @@ class SimImex(Sim) :
                  r' $CMG_HOME/RunSim.sh $solverName $solverVersion "$modelURI" '
                  r' -wd "$wd" -wait -parasol $solverCores $solverExtras | tee $logFile' )
 
+#
+#
+# USAGE
+#
+#
+# sim = SimImex( dat_fn )
+# jid = sim.run( wait = False )

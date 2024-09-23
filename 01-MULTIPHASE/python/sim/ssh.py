@@ -30,10 +30,10 @@ class SSH :
         import time
         s1, s2, status = self.flush()
         if status == "endtag" :
-            print(f"#SSH# Connected to {self.SERVER}.")
+            print(f"Connected to {self.SERVER}.")
             return 0
         else :
-            print(f"#SSH# FAILED to connect to {self.SERVER}.")
+            print(f"# F: Failed to connect to {self.SERVER}.")
 
     #
     #
@@ -52,9 +52,7 @@ class SSH :
         self.stdout = ""
         self.stderr = ""
 
-        #
         # PROCEDURE : Wait for the proces to start outputting
-        #
         i=0
         while True :
             stderr_line = proc.stderr.readline()
@@ -65,15 +63,13 @@ class SSH :
 
             i+=1 
             if i > 100 : 
-                print("#SSH# E: Process did not output as expected after 10 seconds.")
+                print("E: Process did not output as expected after 10 seconds.")
                 return "", ""
-            time.sleep(0.1)
+            time.sleep(0.01)
 
         status = ""
 
-        #
         # PROCEDURE : Collect all the output - break with ENDTAG or 1s idle
-        #
         i=0
         while True :   # Still working
             # Collect stdout
@@ -101,12 +97,12 @@ class SSH :
 
             # Empty. Give one second
             i+=1 
-            if i > timeout/0.1 : 
-                print(f"#SSH# {timeout} second without output - ssh command TIMEOUT.")
+            if i > timeout/0.05 : 
+                print(f"{timeout} second without output - ssh command TIMEOUT.")
                 status = "timeout"
                 break
 
-            time.sleep(0.1)
+            time.sleep(0.05)
             stdout_line = proc.stdout.readline()
             stderr_line = proc.stderr.readline()
 
@@ -124,12 +120,14 @@ class SSH :
         # PROCEDURE : Run command in remote host
         #
         if not quiet : 
-            print(f"#SSH# Running command: $ \"{cmd}\" ...")
+            print(f"Running command: $ \"{cmd}\" ...")
 
         proc.stdin.write(f"{cmd}\n")
         proc.stdin.flush()
-        
-        return self.flush( timeout )
+    
+        sto, ste, sta = self.flush( timeout )
+
+        return sto, ste, sta
 
     #
     # Return the number of processes running currently
@@ -139,16 +137,16 @@ class SSH :
         while n_tries < 10 :
             try :
                 o,e = cmd( "squeue -u bfq9 -h -t pending,running -r | wc -l", deb=deb )
-                print(f"#SSH# Currently running jobs for BFQ9: {int(o)}.")
+                print(f"Currently running jobs for BFQ9: {int(o)}.")
                 n = int(o)
                 break
             except :
-                print(f"#SSH# Failed to fetch the number of jobs running (n_tries={n_tries}). STDOUT='{o}'")
+                print(f"# F: Failed to fetch the number of jobs running (n_tries={n_tries}). STDOUT='{o}'")
                 time.sleep(0.5)
                 n_tries += 1
         
         if n_tries >= 10 :
-            print(f"#SSH# Failed to get the number of jobs running. Returning default value 1000 to keep things going...")
+            print(f"# F: Failed to get the number of jobs running. Returning default value 1000 to keep things going...")
             n=1000
 
         return n

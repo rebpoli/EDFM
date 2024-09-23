@@ -3,3 +3,4 @@
 from .Sim import SimImex
 from .ssh import SSH
 from .Slurm import Slurm
+from .ScopeWatch import ScopeWatch
