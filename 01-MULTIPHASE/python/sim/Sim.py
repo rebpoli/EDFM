@@ -22,11 +22,14 @@ class Sim :
             print(f"FAIL: Expecting a dat file. Extension found: {ext}")
             exit(-1)
 
+        self.sr3 = f"{chdir}/{bn}.sr3"
+        self.chdir = chdir
+        self.basename = bn
         
         # PROCEDURE: Set default params in the child class
         self.params = {
                 "chdir" : chdir,
-                "wd" : ln2win(chdir),
+                "wd" : chdir,
                 "modelURI" : dat_fn,
                 "logFile" : f"{chdir}/{bn}.log",
                 "jobName" : bn,
@@ -50,7 +53,7 @@ class Sim :
         stdout, stderr, status = ssh.cmd(cmd)
         jid = job_id(stdout)
 
-        print(f"[Sim-{jid}] Launched job.")
+        print(f"[Sim-{jid}] Launched job ({self.basename})")
 
         self.jid = jid
         if not wait : return jid

@@ -14,6 +14,8 @@ class SSH :
         # Lets go!
         self.connect()
 
+    def exit( self ) :
+        self.PROC.kill()
     #
     #
     #

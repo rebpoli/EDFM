@@ -2,22 +2,34 @@
 
 #%% Helper stuff
 
-TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
+# TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
+TIMESTEPS = [0,25,50,100,200,400]
 
 from time import sleep
+import os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 import ogsim
 
+from skopt import gp_minimize, Optimizer
+from skopt.space import Real
+from joblib import Parallel, delayed
+from multiprocessing import Pool
+
+from sim import SimImex, SSH, Slurm
+
 #
 #
 #
 class MODEL:
-    def __init__(self, sr3, _2p2k=False, ref_model=None) :
+    def __init__(self, sr3, _2p2k=False, ref_model=None, stdout=None) :
         self._2p2k = _2p2k
         self.ref_model = ref_model
+
+        # Output file handl
+        if stdout : self.ofh = open(stdout, "a")
 
         self.imex = ogsim.IMEX(sr3)
         imex = self.imex
@@ -193,101 +205,50 @@ class MODEL:
     #
     def distance( self, timesteps ) :
         DIST = []
-        print(f"{"TS":^10s} | {"Cost":^10s}\n{25*'-'}")
+        OFH = self.ofh
+        
+        if OFH : 
+            OFH.write(f"{'TS':^10s} | {'Cost':^10s}\n{25*'-'}\n")
+
+        # PROCEDURE : Compute distance for each selected timestep
         for ts in timesteps :
             self.distance_from_ref(ts)
             dist = self.distance_rel['sw']
             dist = np.linalg.norm(dist)          
-            print(f"{ts:^10d} | {dist:^10.3f}")
             DIST.append(dist)
 
+            if OFH : OFH.write(f"{ts:^10d} | {dist:^10.3f}\n")
+
+        # PROCEDURE : Get the L2 Norm of the distances
         ret = np.linalg.norm(DIST)
-        print(25*'-')
-        print(f"{"Norm:":^10s} | {ret:^10.3f}")
+
+        if OFH : 
+            OFH.write(25*'-')
+            OFH.write("\n")
+            OFH.write(f"{'Norm:':^10s} | {ret:^10.3f}\n")
+
         return ret
 
-from pyhpc import sendJob, setenv, jobs
+# from pyhpc import sendJob, setenv, jobs
 import pprint
 import re
 
-# Converts a linux path to a windows path
-def ln2win(fn) :
-    ret = re.sub(r"/dfs_geral_ep/", r"\\\\dfs.petrobras.biz/cientifico/", fn)
-    #ret = re.sub(r"/", r"\\", ret)
-    return ret
 
-# Run imex. Returns when the run is over
-def run_imex(fn) :
-    basename = re.sub(r"^.*/","",fn)
-    chdir = re.sub(r"(\/.+)/.+?$",r"\1",fn)
-    
-    windir = ln2win(chdir)
-    fid = re.sub(r"\.\S+$","",basename)
-    sr3_fn = f"{windir}/{fid}.sr3"
-    log_fn = f"{windir}/{fid}.log"
-    
-    params = {
-        "chdir" : f"{chdir}",
-        "wd" : f"{windir}",
-        "modelURI" : f"{fn}",
-        "jobName" : basename,
-        "solverNodes" : 1,
-        "solverCores" : 12,
-        "account" : "geomec",
-        "slurm" : "-p pre",
-        "jobComment" : fn,
-        "solverName" : "imex",
-        "solverVersion" : "2023.10",
-        "solverExtras" : ""
-    }
-    
-    setenv('','','',r'N:\.ssh\id_rsa')
-    id, stdout, stderr = sendJob(params)
-
-    print (f"O id do job é {id}")
-    if stdout :
-        for line in stdout: print(line)
-
-    print ("stderr:")
-    if stderr :
-        for line in stderr: print(line)
-
-    while (True) :
-        JOBS = {}
-        for i in jobs() : JOBS[i["id"]] = i
-        if not id in JOBS : break # Done
-        print(f"id:{id} // JOBS:{JOBS}")
-        sleep(1)
-
-    # Find whatever is useful in the log file
-    def summary(log_fn) :
-        print(f"Building summary for {log_fn}")
-        ret = f"---- SUMMARY FROM {log_fn} -------\n"
-        filt = ["Elapsed", "Date and Time", "IMEX", "Material Balances"]
-        file = open(log_fn, "r")
-        for line in file:
-            found = 0
-            for f in filt:
-                if re.search(f, line): found=1 ; break
-            if found : ret += line
-        ret += f"---- ****||||**** -------\n"
-        print(ret)
-
-    summary(log_fn)
-    print("DONE")
-    
-    return sr3_fn
 
 import re
 # Parses a template into a final dat to run
-def parse_tpl( params, tpl, chdir, run_id ) :
-    # PROCEDURE : we are going to work on windows!
-    tpl = ln2win(tpl)
-    chdir = ln2win(chdir)
-    # PROCEDURE : Read
+def parse_dat( pars ) :
+    round_id = pars["$ROUND_ID"]
+    run_id = pars["$RUN_ID"]
+
+    chdir = pars["$CHDIR"]
+    tpl = pars["$TEMPLATE"]
+
+    # PROCEDURE : Read template
     tplfh = open(tpl,"r")
     lines = tplfh.readlines()
     tplfh.close()
+
     # PROCEDURE : Replace
     ret = ""
     for line in lines :
@@ -296,10 +257,10 @@ def parse_tpl( params, tpl, chdir, run_id ) :
         line = re.sub(r"^(\s*\*?include\s*('|\"))", r"\1../", line, flags=re.IGNORECASE) 
         ret += line
 
-    for k, v in params.items():
+    for k, v in pars.items():
         ret = ret.replace( k, str(v) )
 
-        # PROCEDURE : Write
+    # PROCEDURE : Write .dat
     ofn = f"{chdir}/run_{run_id}.dat"
     ofh = open(ofn, "w")
     ofh.write(ret)
@@ -307,66 +268,27 @@ def parse_tpl( params, tpl, chdir, run_id ) :
     
     return ofn
 
-#
-# fn : 
-#
-def objective_function( params, tpl, chdir, round_id, run_id ) :
-    global TIMESTEPS, LGR
-    
-    print("Running objective function...")
-    round_dir = f"{chdir}/round_{round_id}"
-
-    import os
-    try: os.mkdir(ln2win(round_dir))
-    except: pass
-    
-    fn = parse_tpl( params, tpl, round_dir, run_id )
-    sr3_fn = run_imex(fn)
-    
-    cost = None
-    if sr3_fn :
-        _mod = MODEL(sr3_fn, _2p2k = True, ref_model = LGR)
-        cost = _mod.distance(TIMESTEPS)
-    
-    return cost
-    
-    
 #%% MAIN ROUTINE
 
 # PROCEDURE: Load fine LGR (reference) grid
-LGR = MODEL(r"..\dat-LGR\01-LGR-MW.sr3")
+lgr_fn = r"../dat-LGR/01-LGR-MW.sr3"
+print('{0:<50}'.format(f"Loading {lgr_fn} ...   "), end='', flush=True)
+LGR = MODEL(lgr_fn)
+print("[Done]")
 
+#
+# This is a parallel function
+def cost_foo( X ) :
+    if os.path.exists(X['stdout']) : os.remove(X['stdout'])
 
-
-#%% Otimizador
-from skopt import gp_minimize, Optimizer
-from skopt.space import Real
-from joblib import Parallel, delayed
-
-def _ob_fun(params) :
-    chdir = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python/history_match_2p2k4"
-    round_id = params["$ROUND_ID"]
-    run_id = params["$RUN_ID"]
-    tpl = f"{chdir}/2P2K4-MW.tpl"
-    round_dir = ln2win(f"{chdir}/round_{round_id}")
-    import os
-    try: os.mkdir(ln2win(round_dir))
-    except: pass
-    
-    import sys
-    OFH = open(f"{round_dir}/run_ob_fun_{run_id}.log",'w', 1)
-    OFH.write(f"Params: {params}!\n")
-    sys.stdout=OFH
-    sys.stderr=OFH
-    print("Hello world!")
-    
-    cost = objective_function( params, tpl, chdir, round_id, run_id )
-    print(f"cost: {cost}")
-    
-    OFH.close()
+    # PROCEDURE : Calculate the cost function
+    _mod = MODEL(X['sr3'], _2p2k = True, ref_model = LGR, stdout=X['stdout'])
+    cost = _mod.distance(TIMESTEPS)
     return cost
+        
     
-# Dimensions: DIFRAC, PERMI_MATRIX, PERMI_FRACTURE
+# PROCEDURE : Initialize Optimizer /// Dimensions: DIFRAC, PERMI_FRACTURE
+print('{0:<50}'.format(f"Initialize optimizer...   "), end='', flush=True)
 optimizer = Optimizer(
     #           DIFRAC       log(PERM_FRAC)
     dimensions=[Real(1,50), Real(2,3)],
@@ -374,17 +296,34 @@ optimizer = Optimizer(
     base_estimator='gp',
     n_initial_points=10
 )
+print(f"[Done]")
 
-run_per_round = 20
-n_rounds = 20
+# PROCEDURE : Open connection
+print('{0:<50}'.format(f"Connect SSH...   "), end='', flush=True)
+print(f"[Done]")
+
+run_per_round = 30
+n_rounds = 3
+
+ssh = SSH( "reslogin" )
+slurm = Slurm(ssh)
+
+# PROCEDURE : Launch rounds .
 for round_id in range(n_rounds) :
     print(f"Starting round {round_id} ...")
 
-    # PROCEDURE : Get next round from optimizer
+    # Create dir
+    chdir    = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python"
+    template = f"{chdir}/2P2K4-MW.tpl"
+    chdir    = f"{chdir}/history_match_2p2k4/round_{round_id}"
+    import os
+    try: os.mkdir(chdir)
+    except: pass
+
+    # Get next round from optimizer
     x = optimizer.ask(n_points=run_per_round)
     X = []
 
-    # PROCEDURE : Prepare parameter list
     for i in range(len(x)) :
         par = x[i]
         r = {
@@ -392,23 +331,118 @@ for round_id in range(n_rounds) :
             '$PERMI_MATRIX'   : 100,
             '$PERMI_FRACTURE' : 10**par[1],
             '$RUN_ID'         : i,
-            '$ROUND_ID'       : round_id
+            '$ROUND_ID'       : round_id,
+            '$CHDIR'          : chdir,
+            '$TEMPLATE'       : template,
         }
         X.append(r)
 
-    # PROCEDURE : Do the runs   
-    print(f"Launching runs ...")
-    y = Parallel(n_jobs=10, verbose=1)(delayed(_ob_fun)(par) for par in X)
-    
+    # Launch the runs
+    JID = []
+    JOB = []
+    for pars in X :
+        dat_fn = parse_dat( pars )
+        #
+        sim = SimImex( dat_fn, ssh )
+        jid = sim.run( wait = False )
+        #
+
+        if jid < 0 :
+            print(f"[FAILED] Dat file {dat_fn} failed to run")
+            JOB.append(None)
+        else :
+            JID.append(jid)
+            JOB.append({'sr3':sim.sr3, 'stdout':f"{sim.chdir}/{sim.basename}.stdout" })
+
+    # Wait every job to finish before moving on. Print graceful message
+    while True :
+        jobs = slurm.running_jobs(JID)
+        print(f"\r{len(jobs):5d} jobs running ...", end='', flush=True)
+        if not len(jobs) : break
+        sleep(.5)
+    print()
+
+    # Calculate cost function (parallel - this can take a while)
+    print("Calculating cost function...")
+    with Pool(100) as p: 
+        y = p.map(cost_foo, JOB)
+            
+    # Info
     print(f"Cost of each run -- ROUND: {round_id}:")
-    print(f"{"RUN ID":^10s} {"DIFRAC":^10s} {"PERMI_MATRIX":^20s} {"PERMI_FRACTURE":^20s} {"COST":^10s}")
+    print(f"{'RUN ID':^10s} {'DIFRAC':^10s} {'PERMI_MATRIX':^20s} {'PERMI_FRACTURE':^20s} {'COST':^10s}")
     for i in range(len(y)) :
-        print(f"{X[i]["$RUN_ID"]:^10d} {X[i]["$DIFRAC"]:^10.2f} {X[i]["$PERMI_MATRIX"]:^20.2f} {X[i]["$PERMI_FRACTURE"]:^20.2f} {y[i]:^.2f}")
+        print(f"{X[i]['$RUN_ID']:^10d} {X[i]['$DIFRAC']:^10.2f} {X[i]['$PERMI_MATRIX']:^20.2f} {X[i]['$PERMI_FRACTURE']:^20.2f} {y[i]:^.2f}")
     print("-------")
     
     # PROCEDURE : Update optimizer with information
     print(f"Update optimizer ...")
     optimizer.tell(x,y)
 
-print("Done")
 # %%
+
+
+
+
+
+
+# # Run imex. Returns when the run is over
+# def run_imex(fn) :
+#     basename = re.sub(r"^.*/","",fn)
+#     chdir = re.sub(r"(\/.+)/.+?$",r"\1",fn)
+#     
+#     windir = ln2win(chdir)
+#     fid = re.sub(r"\.\S+$","",basename)
+#     sr3_fn = f"{windir}/{fid}.sr3"
+#     log_fn = f"{windir}/{fid}.log"
+#     
+#     params = {
+#         "chdir" : f"{chdir}",
+#         "wd" : f"{windir}",
+#         "modelURI" : f"{fn}",
+#         "jobName" : basename,
+#         "solverNodes" : 1,
+#         "solverCores" : 12,
+#         "account" : "geomec",
+#         "slurm" : "-p pre",
+#         "jobComment" : fn,
+#         "solverName" : "imex",
+#         "solverVersion" : "2023.10",
+#         "solverExtras" : ""
+#     }
+#     
+#     setenv('','','',r'N:\.ssh\id_rsa')
+#     id, stdout, stderr = sendJob(params)
+
+#     print (f"O id do job é {id}")
+#     if stdout :
+#         for line in stdout: print(line)
+
+#     print ("stderr:")
+#     if stderr :
+#         for line in stderr: print(line)
+
+#     while (True) :
+#         JOBS = {}
+#         for i in jobs() : JOBS[i["id"]] = i
+#         if not id in JOBS : break # Done
+#         print(f"id:{id} // JOBS:{JOBS}")
+#         sleep(1)
+
+#     # Find whatever is useful in the log file
+#     def summary(log_fn) :
+#         print(f"Building summary for {log_fn}")
+#         ret = f"---- SUMMARY FROM {log_fn} -------\n"
+#         filt = ["Elapsed", "Date and Time", "IMEX", "Material Balances"]
+#         file = open(log_fn, "r")
+#         for line in file:
+#             found = 0
+#             for f in filt:
+#                 if re.search(f, line): found=1 ; break
+#             if found : ret += line
+#         ret += f"---- ****||||**** -------\n"
+#         print(ret)
+
+#     summary(log_fn)
+#     print("DONE")
+#     
+#     return sr3_fn
