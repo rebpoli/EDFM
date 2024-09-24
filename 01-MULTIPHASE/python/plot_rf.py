@@ -37,6 +37,7 @@ ax.set_xlabel("Days")
 ax.set_ylabel(r"Recovery factor (\%)")
 ax.set_xlim(0,400)
 ax.set_ylim(0,80)
+ax.set_xscale('log')
 leg = ax.legend(loc='lower right', bbox_to_anchor=(.99, 0.2))
 leg.get_frame().set_linewidth(.3)
 

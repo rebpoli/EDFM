@@ -1,60 +1,25 @@
 #!/usr/bin/python3 
 
-#%% Helper stuff
+import sim
+template_fn, sr3_ref_fn = sim.util.init()
+DEBUG = sim.shared.DEBUG 
+VERBOSE = sim.shared.VERBOSE
 
-# TIMESTEPS = [0,25,50,75,100,150,200,250,300,350,400]
 TIMESTEPS = [0,25,50,100,200,400]
+DEBUG and print(f"# D: Timestep selection: {TIMESTEPS}.")
+
+#
+# MAIN
+#
 
 from time import sleep
-import os, sys
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
+import os, sys, re
 from skopt import gp_minimize, Optimizer
 from skopt.space import Real
-from joblib import Parallel, delayed
 from multiprocessing import Pool
-
-from sim import SimImex, SSH, Slurm, ScopeWatch
+from sim import SimImex, SSH, Slurm, ScopeWatch, util
 from Model import Model
 
-# from pyhpc import sendJob, setenv, jobs
-import pprint
-import re
-
-
-# Parses a template into a final dat to run
-def parse_dat( pars ) :
-    round_id = pars["$ROUND_ID"]
-    run_id = pars["$RUN_ID"]
-
-    chdir = pars["$CHDIR"]
-    tpl = pars["$TEMPLATE"]
-
-    # PROCEDURE : Read template
-    tplfh = open(tpl,"r")
-    lines = tplfh.readlines()
-    tplfh.close()
-
-    # PROCEDURE : Replace
-    ret = ""
-    for line in lines :
-        # Replace the template tags
-        # Fix the includes
-        line = re.sub(r"^(\s*\*?include\s*('|\"))", r"\1../", line, flags=re.IGNORECASE) 
-        ret += line
-
-    for k, v in pars.items():
-        ret = ret.replace( k, str(v) )
-
-    # PROCEDURE : Write .dat
-    ofn = f"{chdir}/run_{run_id}.dat"
-    ofh = open(ofn, "w")
-    ofh.write(ret)
-    ofh.close()
-    
-    return ofn
 
 #
 # This is a parallel function
@@ -63,21 +28,21 @@ def cost_foo( X ) :
     if os.path.exists(X['stdout']) : os.remove(X['stdout'])
 
     # PROCEDURE : Calculate the cost function
-    _mod = Model(X['sr3'], _2p2k = True, ref_model = LGR, stdout=X['stdout'], timesteps=TIMESTEPS)
+    _mod = Model(   X['sr3'],
+                    _2p2k = True,
+                    ref_model = LGR,
+                    stdout=X['stdout'],
+                    timesteps=TIMESTEPS)
+
     cost = _mod.distance()
     return cost
         
 
-#
-# MAIN ROUTINE
-#
-
 # PROCEDURE: Load fine LGR (reference) grid
-lgr_fn = r"../dat-LGR/01-LGR-MW.sr3"
-with ScopeWatch(f"Loading {lgr_fn} ...") :
-    LGR = Model(lgr_fn, timesteps=TIMESTEPS)
+with ScopeWatch(f"Loading {os.path.basename(sr3_ref_fn)} ...") :
+    LGR = Model(sr3_ref_fn, timesteps=TIMESTEPS)
 
-# PROCEDURE 
+# 
 with ScopeWatch("Initialize optimizer ...") :
     optimizer = Optimizer(
         #           DIFRAC       log(PERM_FRAC)
@@ -87,26 +52,18 @@ with ScopeWatch("Initialize optimizer ...") :
         n_initial_points=10
     )
 
-# PROCEDURE 
+# 
 with ScopeWatch("Connect ssh ...") :
-    ssh = SSH( "reslogin" )
+    ssh = SSH( "reslogin", quiet=not VERBOSE, debug=DEBUG )
     slurm = Slurm(ssh)
 
 #
 # MAIN LOOP : Launch rounds .
-#
 run_per_round = 30
-n_rounds = 3
+n_rounds = 5
 for round_id in range(n_rounds) :
     print(f"Starting round {round_id} ...")
-
-    # Create dir
-    chdir    = "/dfs_geral_ep/res/santos/unbs/gger/er/er01/USR/bfq9/2024-PHD/EDFM/01-MULTIPHASE/python"
-    template = f"{chdir}/2P2K4-MW.tpl"
-    chdir    = f"{chdir}/history_match_2p2k4/round_{round_id}"
-    import os
-    try: os.mkdir(chdir)
-    except: pass
+    chdir = util.setup_round_dir( template_fn, round_id )
 
     # Get next round from optimizer
     with ScopeWatch("Generating next runs ...") :
@@ -123,7 +80,7 @@ for round_id in range(n_rounds) :
             '$RUN_ID'         : i,
             '$ROUND_ID'       : round_id,
             '$CHDIR'          : chdir,
-            '$TEMPLATE'       : template,
+            '$TEMPLATE'       : template_fn,
         }
         X.append(r)
 
@@ -132,7 +89,7 @@ for round_id in range(n_rounds) :
     JOB = []
     with ScopeWatch("Launching jobs ...") :
         for pars in X :
-            dat_fn = parse_dat( pars )
+            dat_fn = util.parse_dat( pars )
             #
             sim = SimImex( dat_fn, ssh )
             jid = sim.run( wait = False )
