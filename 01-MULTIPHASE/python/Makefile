@@ -9,6 +9,12 @@ ow: .force
 ww: .force
 	./history_match_2p2k4.py -t 2P2K4-WW.tpl -s ../dat-LGR/01-LGR-WW.sr3 2>&1 | tee WW.stdout
 
-all: mw ow ww mw16
+mw_1p: .force
+	./history_match_1p.py -t 1P4-MW.tpl -s ../dat-LGR/01-LGR-MW.sr3 2>&1 | tee MW-1P.stdout
+
+mw-refv: .force
+	./history_match_2p2k4.py -t 2P2K4refv-MW.tpl -s ../dat-LGR/01-LGR-MW.sr3 2>&1 | tee MWrefv.stdout
+
+all: mw ow ww mw16 mw_1p
 
 .force:

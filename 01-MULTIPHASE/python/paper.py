@@ -61,21 +61,25 @@ def load_csv_or_die( fn ) :
 # CONFIGURATIONS FOR THE PLOTS
 #
 CFG = {
-        "LGR MW Cap Cont": { 'fn' : "../dat-LGR/01-LGR-MW.sr3" , 'c' : 'r', 'ls': '--' },
-        "LGR OW Cap Cont": { 'fn' : "../dat-LGR/01-LGR-OW.sr3" , 'c' : 'g', 'ls': '--' },
-        "LGR WW Cap Cont": { 'fn' : "../dat-LGR/01-LGR-WW.sr3" , 'c' : 'b', 'ls': '--' },
+        "LGR MW Cap Cont": { 'fn' : "../dat-LGR-long2/01-LGR-MW.sr3" , 'c' : 'r', 'ls': '--' },
+        "LGR OW Cap Cont": { 'fn' : "../dat-LGR-long2/01-LGR-OW.sr3" , 'c' : 'g', 'ls': '--' },
+        "LGR WW Cap Cont": { 'fn' : "../dat-LGR-long2/01-LGR-WW.sr3" , 'c' : 'b', 'ls': '--' },
 
-        "LGR MW $P_c=0$": { 'fn' : "../dat-LGR/01-LGR-MW-PC0.sr3" , 'c' : 'r', 'ls': '-' },
-        "LGR OW $P_c=0$": { 'fn' : "../dat-LGR/01-LGR-OW-PC0.sr3" , 'c' : 'g', 'ls': '-' },
-        "LGR WW $P_c=0$": { 'fn' : "../dat-LGR/01-LGR-WW-PC0.sr3" , 'c' : 'b', 'ls': '-' },
+        "LGR MW $P_c=0$": { 'fn' : "../dat-LGR-long2/01-LGR-MW-PC0.sr3" , 'c' : 'r', 'ls': '-' },
+        "LGR OW $P_c=0$": { 'fn' : "../dat-LGR-long2/01-LGR-OW-PC0.sr3" , 'c' : 'g', 'ls': '-' },
+        "LGR WW $P_c=0$": { 'fn' : "../dat-LGR-long2/01-LGR-WW-PC0.sr3" , 'c' : 'b', 'ls': '-' },
 
-        "LGR MW Cap Discont" : { 'fn' : "../dat-LGR/01-LGR-MW-nocapcont.sr3" , 'c' : 'r', 'ls':'-' },
-        "LGR OW Cap Discont" : { 'fn' : "../dat-LGR/01-LGR-OW-nocapcont.sr3" , 'c' : 'g', 'ls':'-' },
-        "LGR WW Cap Discont" : { 'fn' : "../dat-LGR/01-LGR-WW-nocapcont.sr3" , 'c' : 'b', 'ls':'-' },
+        "LGR MW Cap Discont" : { 'fn' : "../dat-LGR-long2/01-LGR-MW-nocapcont.sr3" , 'c' : 'r', 'ls':'-' },
+        "LGR OW Cap Discont" : { 'fn' : "../dat-LGR-long2/01-LGR-OW-nocapcont.sr3" , 'c' : 'g', 'ls':'-' },
+        "LGR WW Cap Discont" : { 'fn' : "../dat-LGR-long2/01-LGR-WW-nocapcont.sr3" , 'c' : 'b', 'ls':'-' },
 
         "2P2K4 MW Cap Cont": { 'fn' : "../dat-2P2K/2P2K4-MW.sr3" , 'c' : 'r', 'ls': '-' },
         "2P2K4 OW Cap Cont": { 'fn' : "../dat-2P2K/2P2K4-OW.sr3" , 'c' : 'g', 'ls': '-' },
         "2P2K4 WW Cap Cont": { 'fn' : "../dat-2P2K/2P2K4-WW.sr3" , 'c' : 'b', 'ls': '-' },
+
+        "2P2K4 MW $P_c=0$": { 'fn' : "../dat-2P2K/2P2K4-MW-Pc0.sr3" , 'c' : 'r', 'ls': '-' },
+        "2P2K4 OW $P_c=0$": { 'fn' : "../dat-2P2K/2P2K4-OW-Pc0.sr3" , 'c' : 'g', 'ls': '-' },
+        "2P2K4 WW $P_c=0$": { 'fn' : "../dat-2P2K/2P2K4-WW-Pc0.sr3" , 'c' : 'b', 'ls': '-' },
 }
 
 oil_str = "Oil Volume SC SCTR"
@@ -112,23 +116,24 @@ print(df)
 # PROCEDURE: find time constant
 #
 data = []
-for l, grp in df.groupby("label") :
-    c = CFG[l]['c']
+# for l, grp in df.groupby("label") :
+#     c = CFG[l]['c']
 
-    # PROCEDURE: find time constant
-    rf=grp["RF"]
-    time=grp.index
+#     # PROCEDURE: find time constant
+#     rf=grp["RF"]
+#     time=grp.index
 
-    f=interp1d( rf, time, kind="cubic" )
+#     print(f"Processing {l} ...")
+#     f=interp1d( rf, time, kind="cubic" )
 
-    rf_max = grp["RF"].max()
-    rf_2_3 = rf_max * 2 / 3
-    tau = f(rf_2_3)
+#     rf_max = grp["RF"].max()
+#     rf_2_3 = rf_max * 2 / 3
+#     tau = f(rf_2_3)
 
-    CFG[l]["rf_2_3"] = rf_2_3
-    CFG[l]["tau"] = tau
+#     CFG[l]["rf_2_3"] = rf_2_3
+#     CFG[l]["tau"] = tau
 
-    data.append( { "label" : l , "rf_2_3" : rf_2_3, "tau" : tau, "rf_max":rf_max } )
+#     data.append( { "label" : l , "rf_2_3" : rf_2_3, "tau" : tau, "rf_max":rf_max } )
 
-TIME_CONSTANT = pd.DataFrame( data )
-TIME_CONSTANT.to_excel( "png/time_constant.xlsx" )
+# TIME_CONSTANT = pd.DataFrame( data )
+# TIME_CONSTANT.to_excel( "png/time_constant.xlsx" )

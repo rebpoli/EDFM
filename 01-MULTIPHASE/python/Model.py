@@ -8,7 +8,7 @@ class Model :
     def __init__(self, sr3, _2p2k=False, ref_model=None, stdout=None, timesteps=None) :
         self._2p2k = _2p2k
         self.ref_model = ref_model
-        self.timesteps = timesteps
+
 
         # Output file handl
         if stdout : self.ofh = open(stdout, "a")
@@ -16,13 +16,23 @@ class Model :
         self.imex = ogsim.IMEX(sr3)
         imex = self.imex
 
+        self.timesteps = timesteps
+
+        imex.parse_general_info()
+        timetable = imex.general.timetable
+        # Resolve timesteps_idx
+        self.timesteps_idx = []
+        for ts in timesteps :
+            tidx = int(timetable[timetable["Offset in days"] == ts].index[0])
+            self.timesteps_idx.append(tidx)
+
         # PROCEDURE : Load properties of interest
         imex.load_properties(
                             grid_properties=["SW", "KRSETN","BLOCKPVOL"], 
                             twophi2k=_2p2k,
                             load_geometry=True,
                             geometry_type='all',
-                            timestep_idx=timesteps
+#                             timestep_idx=self.timesteps_idx # this is not working.
                             )
 
         # PROCEDURE : Organize grid properties into dataframe, indexed by "Offset in days"
