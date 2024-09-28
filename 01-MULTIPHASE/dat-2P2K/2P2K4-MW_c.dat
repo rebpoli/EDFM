@@ -1,0 +1,82 @@
+** 2024-05-21, 12:52:04, BFQ9
+RESULTS SIMULATOR IMEX 2024.10.557b40a19d
+
+INCLUDE '../inc/io.inc'
+INCLUDE '../inc/mesh-2P2K4.inc'
+
+DIFRAC CON 4 
+DJFRAC CON 4
+DKFRAC CON 4 
+
+PERMI MATRIX CON 100
+PERMJ MATRIX EQUALSI
+PERMK MATRIX EQUALSI
+MOD
+BG 'frame' = 0
+
+PERMI FRACTURE CON 250
+PERMJ FRACTURE EQUALSI
+PERMK FRACTURE EQUALSI
+
+NULL CON 1
+POR MATRIX CON 0.13903 ** porosity of the matrix has to be adjusted: \phi = 0.15 * 3.9^3 / 4^3 = 0.9268
+MOD
+BG 'frame' = 0
+
+POR FRACTURE CON 0.0025
+
+VOLMOD MATRIX CON 1
+VOLMOD FRACTURE CON 1
+MOD
+BG 'frame' * 1e6
+
+*CPOR  MATRIX   2e-7  ** 1/KPa
+*CPOR  FRACTURE   2e-7  ** 1/KPa
+
+*PRPOR    40E3  ** KPa
+
+**
+**
+**
+INCLUDE '../inc/model.inc'
+
+**
+**
+**
+ROCKFLUID
+RTYPE MATRIX CON 1
+RTYPE FRACTURE CON 2
+
+*RPT 1
+INCLUDE '../inc/swt-mw.inc'
+
+*RPT 2
+INCLUDE '../inc/swt-mw-frac.inc'
+
+**
+**
+**
+INITIAL
+VERTICAL *BLOCK_CENTER *WATER_OIL
+
+NREGIONS 2                 
+ITYPE MATRIX CON 1               
+ITYPE FRACTURE CON 1
+MOD BG 'frame' = 2
+
+PB       *CON 20E3  ** KPa
+REFDEPTH   5000.0 5000.0
+REFPRES      40E3 40E3
+DATUMDEPTH 5000.0
+DGOC       1000.0 1000.0  
+DWOC       6000.0 4000.0    ** Fractures saturated with water
+
+NUMERICAL
+INCLUDE '../inc/numerical.inc'
+
+RUN
+DATE    2000    1   1.0000000
+WSRF GRID TIME
+WSRF SECTOR TIME
+INCLUDE '../inc/sch-long.inc'
+STOP

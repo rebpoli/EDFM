@@ -2,7 +2,7 @@
 RESULTS SIMULATOR IMEX 2024.10.557b40a19d
 
 INCLUDE '../../inc/io.inc'
-INCLUDE '../../inc/mesh-2P2K16.inc'
+INCLUDE '../../inc/mesh-2P2K4.inc'
 
 DIFRAC CON $DIFRAC 
 DJFRAC CON $DIFRAC
@@ -20,8 +20,12 @@ PERMK FRACTURE EQUALSI
 
 NULL CON 1
 POR MATRIX CON 0.13903 ** porosity of the matrix has to be adjusted: \phi = 0.15 * 3.9^3 / 4^3 = 0.9268
+MOD
+BG 'frame' = 0
+
 POR FRACTURE CON 0.0025
 
+VOLMOD MATRIX CON 1
 VOLMOD FRACTURE CON 1
 MOD
 BG 'frame' * 1e6
@@ -62,7 +66,8 @@ INITIAL
 VERTICAL *BLOCK_CENTER *WATER_OIL
 
 NREGIONS 2                 
-ITYPE CON 1               
+ITYPE MATRIX CON 1               
+ITYPE FRACTURE CON 1
 MOD BG 'frame' = 2
 
 PB       *CON 20E3  ** KPa
@@ -76,30 +81,8 @@ NUMERICAL
 INCLUDE '../../inc/numerical.inc'
 
 RUN
-DATE	2000	1	1.0000000	 ** 15 min interval
-
-**WELL  'I1'
-**INJECTOR MOBWEIGHT 'I1'
-**INCOMP WATER
-**OPERATE  MAX  BHP  45e3
-**OPERATE  MAX  STW  5000
-****GEOMETRY  K  0.0762  0.37  1.0  0.0  
-**PERF      GEOA  'I1'
-**1 1 1:179 1.0 OPEN
-
-
-**WELL  'P1'
-**PRODUCER 'P1'
-**OPERATE  MIN  BHP 40e3
-**OPERATE  MAX  STL 5000
-****GEOMETRY  K  0.0762  0.37  1.0  0.0  
-**PERF      GEOA  'P1'
-**1 179 1:179 1.0 OPEN
-
-**SHUTIN '*'
-
+DATE    2000    1   1.0000000
 WSRF GRID TIME
 WSRF SECTOR TIME
-
-INCLUDE '../../inc/sch.inc'
+INCLUDE '../../inc/sch-long.inc'
 STOP

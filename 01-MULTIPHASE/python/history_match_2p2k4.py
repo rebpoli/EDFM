@@ -46,7 +46,7 @@ with ScopeWatch(f"Loading {os.path.basename(sr3_ref_fn)} ...") :
 with ScopeWatch("Initialize optimizer ...") :
     optimizer = Optimizer(
         #           DIFRAC       log(PERM_FRAC)
-        dimensions=[Real(1,50), Real(2,4), Real(2,4)],
+        dimensions=[Real(1,50), Real(1,3)],
         random_state=1,
         base_estimator='gp',
         n_initial_points=10
@@ -75,8 +75,8 @@ for round_id in range(n_rounds) :
         par = x[i]
         r = {
             '$DIFRAC'         : par[0],
-            '$PERMI_MATRIX'   : 10**par[1],
-            '$PERMI_FRACTURE' : 10**par[2],
+            '$PERMI_MATRIX'   : 100,
+            '$PERMI_FRACTURE' : 10**par[1],
             '$RUN_ID'         : i,
             '$ROUND_ID'       : round_id,
             '$CHDIR'          : chdir,
