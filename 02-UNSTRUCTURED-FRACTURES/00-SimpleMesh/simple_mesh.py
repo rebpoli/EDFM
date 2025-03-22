@@ -76,8 +76,6 @@ FRAC_N = CFG["mesh"]["frac_n"]  # number of fractures in the domain
 
 print(f"Generating mesh with '{FRAC_N}' fractures ...");
 
-v1 = AddBox( 0,0,0, DOMAIN_L,DOMAIN_L,DOMAIN_L )
-
 ##
 #
 #
@@ -151,8 +149,10 @@ def create_plane_from_strike_dip(strike, dip, origin=(0, 0, 0), size=10):
     return surface
 
 
-create_plane_from_strike_dip(30, 45, origin=(50, 50, 50), size=80)
+v1 = AddBox( 0,0,0, DOMAIN_L,DOMAIN_L,DOMAIN_L )
+create_plane_from_strike_dip(60, 45, origin=(50, 50, 50), size=80)
 create_plane_from_strike_dip(90, 90, origin=(50, 50, 50), size=80)
+create_plane_from_strike_dip(0, 90, origin=(50, 50, 50), size=80)
 Synchronize()
 
 Mesh.field.add("Distance", 1)
@@ -172,7 +172,7 @@ Generate(3)
 
 # # Write to output file
 # Option.setNumber( "Mesh.SaveAll", 1 )
-# gmsh.write( args.Output )
+gmsh.write( "example.msh" )
 
 Run()
 Finalize()
