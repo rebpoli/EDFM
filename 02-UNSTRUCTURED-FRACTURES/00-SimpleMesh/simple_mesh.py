@@ -172,7 +172,7 @@ Generate(3)
 
 # # Write to output file
 # Option.setNumber( "Mesh.SaveAll", 1 )
-gmsh.write( "example.msh" )
+gmsh.write( "example.vtk" )
 
 Run()
 Finalize()
